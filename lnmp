@@ -5,20 +5,20 @@ if [ $(id -u) != "0" ]; then
     echo "Error: You must be root to run this script, please use root to install lnmp and try again"
     exit 1
 fi
-# by evan886@gmail.com   20130821  这个脚本尽量用了 yum 安装其它不是关键的软件#good  lnmp full 里面的那个升级php的脚本不错呢
-
+# by evan886@gmail.com  20150623pm   20130821  这个脚本尽量用了 yum 安装其它不是关键的软件#good  lnmp full 里面的那个升级php的脚本不错呢
 #./lnmp  2>&1 | tee 36nmp.log  #原版本 lnmp.txt #update 20130204
 domain="a.com"
 echo -e "\033[31m  Please input U domain! Default domain: a.com!!! \033[0m"
 #read -p  "\033[31m Please input U domain! Default domain: a.com \033[0m" domain
 read domain
-if [ "domain" = "" ]; then
+if [ "domain" = " " ]; then
         domain="a.com"
 fi
 		mkdir -p /data/tmp/ && cd /data/tmp
 		wget -c  linuxchina.net/36nmp.tar.bz2
 		tar -xvf 36nmp.tar.bz2
-		if [ -s  /data/tmp/36nmp/php-5.3.22.tar.bz2 ];
+		if [ -s  /data/tmp/36nmp/php-5.6.6.tar.bz2 ];
+		#if [ -s  /data/tmp/36nmp/php-5.3.22.tar.bz2 ];
 		then 
 		echo "all soft is ok"
 		else
@@ -206,7 +206,8 @@ function insphp()
 cpunu=`cat /proc/cpuinfo |grep processor |wc -l`
 #export dr=/data/tmp/36nmp; cd $dr
 if [ ! -d /usr/local/php/bin ]; then
-   tar xvf php-5.3.22.tar.bz2 && cd php-5.3.22;
+   tar xvf php-5.6.6.tar.bz2 && cd php-5.6.6;
+   #tar xvf php-5.3.22.tar.bz2 && cd php-5.3.22;
    groupadd -g 504 www;
    useradd -s /sbin/nologin -g www www;
 ldconfig;
@@ -223,7 +224,8 @@ ldconfig;
                      exit 1
                    fi
  cd $dr
- \cp php.ini-production5.3  /etc/php.ini
+ \cp php.ini-production5.6  /etc/php.ini
+ #\cp php.ini-production5.3  /etc/php.ini
  \cp php-fpm5.4 /etc/rc.d/init.d/php-fpm  ##设置 php-fpm开机启动，拷贝php-fpm到启动目录
  chmod +x /etc/rc.d/init.d/php-fpm  ##添加执行权限  这是自己的,有空再参考一下别人的
  chkconfig php-fpm on
@@ -265,7 +267,7 @@ cd memcached-1.4.15/
 make &&make install
 cd $dr
 
-ln /usr/local/memcached/bin/memcached /usr/bin/memcached
+ln -s  /usr/local/memcached/bin/memcached /usr/bin/memcached
 
 cp memcached-init /etc/init.d/memcached
 chmod +x /etc/init.d/memcached
@@ -291,9 +293,10 @@ cd ImageMagick-6.7.1-6/
 ./configure --prefix=/usr/local/imagemagick
 make -j$cpunu && make install
 
+#https://pecl.php.net/package/imagick
 cd $dr
-tar zxvf imagick-3.0.1.tgz
-cd imagick-3.0.1/
+tar zxvf imagick-3.1.2.tgz
+cd imagick-3.1.2/
 /usr/local/php/bin/phpize
 ./configure --with-php-config=/usr/local/php/bin/php-config --with-imagick=/usr/local/imagemagick
 make -j$cpunu && make install
@@ -302,19 +305,19 @@ cd $dr
 
 mkdir -p  /data/log
 chmod 777 -R /data/log
-mkdir -p /usr/local/php/eaccelerator_cache
-#pid
-mkdir -p /usr/data/php/eaccelerator_cache
-chmod 0777 /usr/data/php/eaccelerator_cache
+#mkdir -p /usr/local/php/eaccelerator_cache
+##pid
+#mkdir -p /usr/data/php/eaccelerator_cache
+#chmod 0777 /usr/data/php/eaccelerator_cache
 	 #export dr=/data/tmp/36nmp
 	  cd $dr
 
-tar zxvf eaccelerator-eaccelerator-42067ac.tar.gz
-cd eaccelerator-eaccelerator-42067ac/
-/usr/local/php/bin/phpize
-./configure --enable-eaccelerator=shared --with-php-config=/usr/local/php/bin/php-config
-make  -j$cpunu && make install
-cd $dr
+#tar zxvf eaccelerator-eaccelerator-42067ac.tar.gz
+#cd eaccelerator-eaccelerator-42067ac/
+#/usr/local/php/bin/phpize
+#./configure --enable-eaccelerator=shared --with-php-config=/usr/local/php/bin/php-config
+#make  -j$cpunu && make install
+#cd $dr
 }
 insphpex;
 cd $dr
@@ -376,7 +379,6 @@ chkconfig --level 345 mysqld on
 other;
 
 cd $dr
-# by evan  20130820  这个脚本尽量用了 yum 安装其它不是关键的软件
 #good  lnmp full 里面的那个升级php的脚本不错呢
 #http://blog.chinaunix.net/uid-9419692-id-3200819.html
 #http://www.linuxidc.com/Linux/2011-07/38107p2.htm?1352725125
