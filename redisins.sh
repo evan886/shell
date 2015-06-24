@@ -1,7 +1,7 @@
 #!/bin/bash
 #Author evan
 #changelog  添加一些变量 和改正写错的一些命令 
-# 这个脚本不一定通用哦 虽然我尽量用了变量 去定义phpize php-conf php.ini etc
+## 这个脚本不一定通用哦 虽然我尽量用了变量 去定义phpize php-conf php.ini etc
 
 
 #redis ins
