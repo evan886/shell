@@ -1,0 +1,305 @@
+Install MongoDB https://www.mongodb.org/downloads
+
+
+第一种 通用二进制包安装
+
+curl -O https://fastdl.mongodb.org/linux/mongodb-linux-x86_64-3.0.4.tgz
+
+tar xvf mongodb-linux-x86_64-3.0.4.tgz
+#mkdir -p mongodb
+cp -R -n mongodb-linux-x86_64-3.0.4/    /data/mongodb/
+#export PATH=<mongodb-install-directory>/bin:$PATH
+echo 'export PATH=/data/mongodb/bin:$PATH '>>/etc/profile
+mkdir  -p  /data/mongodb/db  
+#<path to binary>/mongod
+
+#mongod --dbpath <path to data directory>
+
+/data/mongodb/bin/mongod   --dbpath  /data/mongodb/db 
+
+
+#http://docs.mongodb.org/manual/tutorial/install-mongodb-on-linux/
+
+
+
+PHP的MongoDB 扩展安装
+#从 http://pecl.php.net/  搜索mongo 并获取最新稳定版的扩展包
+#Homepage  
+#http://docs.mongodb.org/ecosystem/drivers/php/
+#https://pecl.php.net/package/mongo
+
+
+
+
+wget https://pecl.php.net/get/mongo-1.6.9.tgz
+tar xvf mongo-1.6.9.tgz  &&  cd mongo-1.6.9
+/usr/local/php/bin/phpize
+ ./configure -with-php-config=/usr/local/php/bin/php-config  ##// 注意php-config 安装路径
+make -j2  && make install
+
+
+编辑php.ini 配置文件在末行添加
+echo 'extension= "mongo.so" ' >> /etc/php.ini
+//如果之前从未安装其它扩展，需要先指定extension_dir 扩展目录
+完成后重启PHP,查看phpinfo 有mongo 的项目出现则安装成功.
+
+********************************
+第二种  源码安装 
+
+1.安装依赖的软件包
+# yum install pcre-devel python-devel  #scons
+https://www.mongodb.org/about/contributors/tutorial/build-mongodb-from-source/#building-mongodb-from-source
+
+ #yum install scons -y 
+
+wget http://nchc.dl.sourceforge.net/project/scons/scons/2.3.5/scons-2.3.5.tar.gz
+tar xvf scons-2.3.5.tar.gz 
+cd scons-2.3.5
+cat README.txt 
+python setup.py install
+
+
+** ** ** gcc5 install 
+http://www.linuxfromscratch.org/blfs/view/svn/general/gcc.html
+tar xvf gcc-5.1.0.tar.bz2 
+cd gcc-5.1.0
+#gcc-5.1.0/contrib/download_prerequisites
+cd contrib/
+bash download_prerequisites
+
+mv gmp-4.3.2  ../gmp 
+mv mpfr-2.4.2  ../mpfr
+mv mpc-0.8.1 ../mpc
+
+移动到gcc-5.1.0下面
+这样的做法好处是，不用单独编译gmp、mpfr和mpc三个包，放在gcc源码下面一起编译
+#新建目录用于存放编译结果：
+ mkdir gcc-build-5.1.0
+cd  gcc-build-5.1.0
+../gcc-5.1.0/configure --enable-checking=release --enable-languages=c,c++ --disable-multilib
+
+
+#具体选项不多解释，大家可以自己查看，我只用到c和c++，所以只编译这两种语言的编译器。
+make -j4 &&  make install
+
+mv /usr/bin/gcc /usr/bin/gcc4
+ln -s /usr/local/bin/gcc /usr/bin/gcc
+
+[root@AY1401141503198663afZ ~]# gcc --version
+gcc (GCC) 5.1.0
+Copyright © 2015 Free Software Foundation, Inc.
+
+** ** ** gcc5 install 
+
+
+CentOS 6.4 编译安装 gcc 4.8.1
+http://www.cnblogs.com/codemood/archive/2013/06/01/3113200.html
+
+
+
+wget https://fastdl.mongodb.org/src/mongodb-src-r3.0.4.tar.gz
+
+
+
+BUILDING
+
+  See docs/building.md, also www.mongodb.org search for "Building".
+
+RUNNING
+
+  For command line options invoke:
+
+    $ ./mongod --help
+
+  To run a single server database:
+
+    $ mkdir /data/db
+    $ ./mongod
+    $
+    $ # The mongo javascript shell connects to localhost and test database by default:
+    $ ./mongo
+    > help
+
+
+
+
+http://www.mongodb.org/about/contributors/tutorial/build-mongodb-from-source/
+
+3.使用Py 编译工具scons 进行编译并安装
+tar xvf mongodb-src-r3.0.4.tar.gz
+
+cd mongodb-src-r3.0.4
+ scons -j 4  all               #使用2线程并行编译，推荐使用CPU核心数
+# scons –prefix=/usr/local/mongo install
+// 如果需要lib库和include头文件 需要加上 –full 参数如下：
+# scons –prefix=/usr/local/mongo –full install
+
+4.添加mongodb 用户和配置
+# useradd mongodb -M -s /sbin/nologin
+
+//创建目录，根据需要进行自定义
+# mkdir -pv /etc/mongo                      //配置文件路径
+# mkdir -pv /var/lib/mongo                 //数据存储路径
+# mkdir -pv /var/log/mongo                //日志文件路径
+# mkdir -pv /var/run/mongodb            //Pid 路径
+
+//将源码包中的配置文件复制到 /etc/mongo 下
+# cp mongodb-src/rpm/mongod.conf /etc/mongo
+
+//给予日志和数据路径mongodb用户组访问权限
+# chown -R mongodb.mongodb /var/log/mongodb
+# chown -R mongodb.mongodb /var/lib/mongodb
+
+5. 编辑配置文件
+# vi /etc/mongo/mongod.conf
+—–配置参考下面的路径进行或查阅配置说明文档——
+dbpath = /var/lib/mongo
+logpath = /var/log/mongo
+pidfilepath = /var/run/mongodb/mongod.pid
+directoryperdb = true
+logappend = true
+noauth = true
+port = 27017
+maxConns = 1024
+fork = true
+rest = true
+quota = true
+quotaFiles = 1024
+nssize = 16
+—–配置参考结束——
+
+6.配置开机启动文件
+//将下列脚本保存为 mongod 并存放在/etc/rc.d/init.d/ 下，并给与执行权限
+
+#!/bin/sh
+#
+# mongodb      init file for starting up the MongoDB server
+#
+# chkconfig:   - 20 80
+# description: Starts and stops the MongDB daemon that handles all \
+#              database requests.
+
+# Source function library.
+. /etc/rc.d/init.d/functions
+
+exec="/usr/local/mongo/bin/mongod"
+prog="mongod"
+logfile="/var/log/mongodb/mongodb.log"
+options=" -f /etc/mongo/mongod.conf"
+
+[ -e /etc/sysconfig/$prog ] && . /etc/sysconfig/$prog
+
+lockfile="/var/lock/subsys/mongod"
+
+start() {
+    [ -x $exec ] || exit 5
+    echo -n $"Starting $prog: "
+    daemon --user mongodb "$exec --quiet $options run >> $logfile 2>&1 &"
+    retval=$?
+    echo
+    [ $retval -eq 0 ] && touch $lockfile
+    return $retval
+}
+
+stop() {
+    echo -n $"Stopping $prog: "
+    killproc $prog
+    retval=$?
+    echo
+    [ $retval -eq 0 ] && rm -f $lockfile
+    return $retval
+}
+
+restart() {
+    stop
+    start
+}
+
+reload() {
+    restart
+}
+
+force_reload() {
+    restart
+}
+
+rh_status() {
+    # run checks to determine if the service is running or use generic status
+    status $prog
+}
+
+rh_status_q() {
+    rh_status >/dev/null 2>&1
+}
+
+
+case "$1" in
+    start)
+        rh_status_q && exit 0
+        $1
+        ;;
+    stop)
+        rh_status_q || exit 0
+        $1
+        ;;
+    restart)
+        $1
+        ;;
+    reload)
+        rh_status_q || exit 7
+        $1
+        ;;
+    force-reload)
+        force_reload
+        ;;
+    status)
+        rh_status
+        ;;
+    condrestart|try-restart)
+        rh_status_q || exit 0
+        restart
+        ;;
+    *)
+        echo $"Usage: $0 {start|stop|status|restart|condrestart|try-restart|reload|force-reload}"
+        exit 2
+esac
+exit $?
+
+
+# chkconfig –add mongod
+//设置为开机启动
+# service mongod start
+// 进行启动并测试27017端口是否开放，如果配置有误，请查阅 /var/log/mongo  下的日志输出信息
+
+
+http://blog.csdn.net/zhoulv2000/article/details/17081623
+http://blog.chinaunix.net/uid-8625039-id-4444101.html
+
+
+************************************
+第三种 yum 安装 比较简单
+http://docs.mongodb.org/manual/tutorial/install-mongodb-on-red-hat/
+
+
+
+echo '[mongodb-org-3.0]
+name=MongoDB Repository
+baseurl=https://repo.mongodb.org/yum/redhat/$releasever/mongodb-org/3.0/x86_64/
+gpgcheck=0
+enabled=1' >/etc/yum.repos.d/mongodb-org-2.6.repo
+
+yum install -y mongodb-org
+service mongod start
+
+
+
+
+http://www.sulabs.net/?p=359
+
+linux安装mongoDB及添加php的mongoDB扩展
+http://coolnull.com/115.html
+
+
+
+
+
