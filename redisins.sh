@@ -17,7 +17,10 @@ mkdir /etc/redis
 cp redis.conf /etc/redis/redis.conf
 echo "vm.overcommit_memory=1">>/etc/sysctl.conf
 sysctl -p
-redis-server /etc/redis/redis.conf  &
+/usr/local/bin/redis-server  /etc/redis/redis.conf &
+
+#./redis-server --port 6380 --slaveof 127.0.0.1 6379
+#redis-server /etc/redis/redis.conf  &
 
 
 #phpredis ins
