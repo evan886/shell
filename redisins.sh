@@ -17,6 +17,8 @@ mkdir /etc/redis
 
 
 mkdir -p  /data/redis/6379
+mkdir -p  /data/logs/
+
 touch /data/logs/redis_6379.log
 
 
