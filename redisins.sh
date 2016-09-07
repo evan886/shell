@@ -995,7 +995,7 @@ EXEC=/usr/local/bin/redis-server
 CLIEXEC=/usr/local/bin/redis-cli
 PIDFILE=/var/run/redis_6379.pid
 CONF="/etc/redis/6379.conf"
-REDISPASS="dkmhw3xdghlrd"
+REDISPASS="dkm"
 REDISPORT="6379"
 ###############
 # SysV Init Information
