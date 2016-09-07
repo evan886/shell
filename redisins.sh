@@ -5,6 +5,7 @@
 
 
 #redis ins  4 dkmgame 
+yum install wget -y 
 mkdir -p /data/evan/
 cd /data/evan/
 wget -c http://download.redis.io/releases/redis-3.0.0.tar.gz
