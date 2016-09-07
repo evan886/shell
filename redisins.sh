@@ -1,7 +1,6 @@
 #!/bin/bash
 #Author evan886@gmail.com
-#
-## 
+## is  ok on centos 6 or 7  
 
 
 #redis ins  4 dkmgame 
