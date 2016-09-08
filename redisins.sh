@@ -443,7 +443,7 @@ slave-priority 100
 # use a very strong password otherwise it will be very easy to break.
 #
 # requirepass foobared
-requirepass dkm
+requirepass "dkm"
 bind 127.0.0.1
 
 # Command renaming.
@@ -1080,7 +1080,7 @@ esac ' >/etc/init.d/redis
       
 
 
-#password='dkmhw3xdghlrd'
+#password='dkm'
 #sed -i "392a requirepass $password" /etc/redis/6379.conf
 
 #sed -i '393a bind 127.0.0.1' /etc/redis/6379.conf
