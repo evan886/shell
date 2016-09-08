@@ -1,10 +1,10 @@
 #!/bin/bash
-#Author evan886@gmail.com
-## is  ok on centos 6 or 7  
+#Author evan
+#
+## 
 
 
-#redis ins  4 dkmgame 
-yum install wget -y 
+#redis ins
 mkdir -p /data/evan/
 cd /data/evan/
 wget -c http://download.redis.io/releases/redis-3.0.0.tar.gz
@@ -14,11 +14,22 @@ make -j2
 make  install 
 mkdir /etc/redis
 
-
+groupadd -g 804 redis 
+useradd -s /sbin/nologin -g redis redis ;
 mkdir -p  /data/redis/6379
-mkdir -p  /data/logs/
-
 touch /data/logs/redis_6379.log
+chown -R redis:redis  /data/redis/
+chown  redis:redis /data/logs/redis_6379.log
+
+
+
+
+
+
+
+
+
+
 
 
 #/data/logs/redis_6379.log
@@ -79,7 +90,9 @@ daemonize yes
 
 # When running daemonized, Redis writes a pid file in /var/run/redis.pid by
 # default. You can specify a custom pid file location here.
-pidfile /var/run/redis_6379.pid
+#pidfile /var/run/redis_6379.pid
+pidfile /data/redis/redis_6379.pid
+
 
 # Accept connections on the specified port, default is 6379.
 # If port 0 is specified Redis will not listen on a TCP socket.
@@ -430,7 +443,7 @@ slave-priority 100
 # use a very strong password otherwise it will be very easy to break.
 #
 # requirepass foobared
-requirepass youpassword 
+requirepass dkm
 bind 127.0.0.1
 
 # Command renaming.
@@ -993,7 +1006,8 @@ echo '#!/bin/sh
 
 EXEC=/usr/local/bin/redis-server
 CLIEXEC=/usr/local/bin/redis-cli
-PIDFILE=/var/run/redis_6379.pid
+#PIDFILE=/var/run/redis_6379.pid
+PIDFILE=/data/redis/redis_6379.pid
 CONF="/etc/redis/6379.conf"
 REDISPASS="dkm"
 REDISPORT="6379"
@@ -1012,6 +1026,8 @@ REDISPORT="6379"
 # Short-Description: start and stop redis_6379
 # Description: Redis daemon
 ### END INIT INFO
+#by evan
+. /etc/rc.d/init.d/functions
 
 
 case "$1" in
@@ -1064,7 +1080,7 @@ esac ' >/etc/init.d/redis
       
 
 
-#password='dkm'
+#password='dkmhw3xdghlrd'
 #sed -i "392a requirepass $password" /etc/redis/6379.conf
 
 #sed -i '393a bind 127.0.0.1' /etc/redis/6379.conf
