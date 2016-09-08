@@ -42,7 +42,7 @@ chown  redis:redis /data/logs/redis_6379.log
 
 
 
- cp /data/evan/redis-3.0.0/utils/redis_init_script /etc/init.d/redis
+# cp /data/evan/redis-3.0.0/utils/redis_init_script /etc/init.d/redis
  chkconfig --add redis
 
 ##here2016
