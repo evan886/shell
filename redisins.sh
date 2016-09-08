@@ -1036,11 +1036,11 @@ case "$1" in
         then
             echo "$PIDFILE exists, process is already running or crashed"
         else
-            echo "Starting Redis server..."
-          #daemon --user ${REDIS_USER-redis} "$exec $REDIS_CONFIG"
+         echo "Starting Redis server..."
+         #daemon --user ${REDIS_USER-redis} "$exec $REDIS_CONFIG"
          #daemon --user ${REDIS_USER-redis} "$EXEC $CONF"
-          #"$EXEC  --user redis $CONF"
-            $EXEC $CONF
+         #$EXEC $CONF
+         daemon --user redis "$EXEC $CONF"
         fi
         ;;
     stop)
