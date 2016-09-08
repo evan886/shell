@@ -1,8 +1,7 @@
 #!/bin/bash
 #Author evan
-#
-## 
-
+## pre
+yum install wget -y  
 
 #redis ins
 mkdir -p /data/evan/
@@ -22,16 +21,6 @@ chown -R redis:redis  /data/redis/
 chown  redis:redis /data/logs/redis_6379.log
 
 
-
-
-
-
-
-
-
-
-
-
 #/data/logs/redis_6379.log
 #/data/redis/6379
 #/usr/local/bin/redis-server
@@ -39,11 +28,8 @@ chown  redis:redis /data/logs/redis_6379.log
 #交互
 #bash /data/evan/redis-3.0.0/utils/install_server.sh
 
-
-
-
 # cp /data/evan/redis-3.0.0/utils/redis_init_script /etc/init.d/redis
- chkconfig --add redis
+chkconfig --add redis
 
 ##here2016
 #cp redis.conf /etc/redis/redis.conf
