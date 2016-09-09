@@ -1,0 +1,83 @@
+
+目前关于网站架构一般比较合理流行的架构方案：Web前端采用Nginx/HAProxy+Keepalived作负载均衡器；后端采用MySQL数据库一主多从和读写分离，采用LVS+Keepalived的架构。
+
+这里 因为nginx 一般都有了  日PV小于1000万，用Nginx就完全可以了
+
+
+
+这个样子 就是web 三台  mysql 两台 共五台 
+
+
+
+用户访问http://www.yahgame.com，将其负载均衡到192.168.1.2:80、192.168.1.3:80、两台服务器。
+
+
+user www www;
+
+worker_processes 10;
+
+#error_log logs/error.log;
+#error_log logs/error.log notice;
+#error_log logs/error.log info;
+
+#pid logs/nginx.pid;
+
+#最大文件描述符
+worker_rlimit_nofile 51200;
+
+events
+{
+use epoll;
+
+worker_connections 51200;
+}
+
+http
+{
+include conf/mime.types;
+default_type application/octet-stream;
+
+keepalive_timeout 120;
+
+tcp_nodelay on;
+
+
+
+
+
+upstream www.yahgame.com {
+#ip_hash;
+server 192.168.1.2:80;
+server 192.168.1.3:80;
+
+}
+
+
+
+server
+{
+listen 80;
+server_name www.yahgame.com;
+
+location / {
+proxy_pass http://www.yahgame.com;
+proxy_set_header Host $host;
+proxy_set_header X-Real-IP $remote_addr;
+proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+}
+
+log_format www.yahgame.com ‘$remote_addr – $remote_user [$time_local] $request ‘
+‘”$status” $body_bytes_sent “$http_referer” ‘
+‘”$http_user_agent” “$http_x_forwarded_for”‘;
+access_log /data1/logs/www.log www_ha97_com;
+}
+
+
+#Nginx简单的负载均衡配置示例
+#http://www.ha97.com/962.html
+
+#Nginx/LVS/HAProxy负载均衡软件的优缺点详解
+http://www.ha97.com/5646.html
+
+HAProxy的优点能够补充Nginx的一些缺点，比如支持Session的保持，Cookie的引导；同时支持通过获取指定的url来检
+
