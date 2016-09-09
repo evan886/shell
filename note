@@ -1,0 +1,46 @@
+
+1.function 
+http://www.cnblogs.com/image-eye/archive/2011/10/26/2220405.html
+
+http://blog.chinaunix.net/xmlrpc.php?r=blog/article&uid=28773997&id=3996557
+
+http://blog.chinaunix.net/uid-20196318-id-94985.html
+
+http://blog.csdn.net/callmeback/article/details/5884579
+
+
+ linux的functions之daemon函数详解
+http://9528du.blog.51cto.com/8979089/1420058
+
+
+http://9528du.blog.51cto.com/8979089/1419499
+
+2. about c daemon etc 
+3. nginx upstre 
+
+http://www.cnblogs.com/xiaogangqq123/archive/2011/03/04/1971002.html
+http://freeloda.blog.51cto.com/2033581/1288553
+
+http://favccxx.blog.51cto.com/2890523/1622091
+
+
+
+
+
+man daemon看看，是C的函数。
+
+
+
+10 enter
+11 nginx 1
+12 nginx2 
+
+13 db1
+14 db2
+
+
+
+
+方案 
+请广州同事看看3条宽带工作正常不,是上传还是下载的同事慢,上传组的同事划分1个网段专门走,10M的专线.
+100M,和另一条10M,其他人用wifi专门划分1 个网段.暂时不限制速度.
