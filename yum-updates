@@ -1,0 +1,78 @@
+#!/bin/bash
+# 依Shell 脚本的编码规范书写脚本说明 centos5 only 
+# yum This shell script enables the yum-updates daemon
+#在有些时间我们需要自己写一些启动脚本，这些脚本必须符合系统的要求，也就是init脚本。下面有一个例子，我们把它理解透了，自己写启动脚本也就不是什么难题了。
+#这是一个linux启动脚本，redhat和centos通用
+#CentOS 5有一个新的守护进程叫做yum-updatesd，它替代了老的cron中yum的更新脚本.这个(新)脚本会频繁的检查更新，并根据配置下载或安装它们。然而,这个守护进程对server来说并不好，因为它并不是在固定的时间运行，它有可能在服务器一天当中最忙的时候下载和更新软件
+#其中：chkconfig里面的345代表在第3 4 5运行级别启动这个服务  97代表启动优先级 03代表关闭优先级
+# Author: Jeremy Katz <katzj@redhat.com>
+#
+# chkconfig: 345 97 03
+#
+# description: This is a daemon which periodically checks for updates \
+# and can send notifications via mail, dbus or syslog.
+# processname: yum-updatesd
+# config: /etc/yum/yum-updatesd.conf
+# pidfile: /var/run/yum-updatesd.pid
+#
+# 在当前 Shell 中运行函数库文件 /etc/rc.d/init.d/functions
+. /etc/rc.d/init.d/functions
+# 设置脚本返回值变量
+RETVAL=0
+# 定义 start 函数
+start() {
+echo -n $"Starting yum-updatesd: "
+# 用 /etc/rc.d/init.d/functions 中的函数 daemon 调用守护进程 yum-updatesd
+daemon yum-updatesd
+# 将函数 daemon 的返回值赋予变量 RETVAL
+RETVAL=$?
+echo
+# 如果函数 daemon 执行成功，生成锁定文件 /var/lock/subsys/yum-updatesd
+[ $RETVAL -eq 0 ] && touch /var/lock/subsys/yum-updatesd
+}
+# 定义 stop 函数
+stop() {
+echo -n $"Stopping yum-updatesd: "
+# 用 /etc/rc.d/init.d/functions 中的函数 killproc 杀死守护进程 yum-updatesd
+killproc yum-updatesd
+echo
+# 如果函数 killproc 执行成功，删除锁定文件 /var/lock/subsys/yum-updatesd
+[ $RETVAL -eq 0 ] && rm -f /var/lock/subsys/yum-updatesd
+}
+# 定义 restart 函数
+restart() {
+stop
+start
+}
+# 根据调用本脚本的第一个位置参数的值执行不同的操作
+case "$1" in
+start)
+start
+;;
+stop)
+stop
+;;
+restart|force-reload|reload)
+restart
+;;
+condrestart)
+# 若服务已经启动（锁定文件 /var/lock/subsys/yum-updatesd存在）则重新启动
+[ -f /var/lock/subsys/yum-updatesd ] && restart
+;;
+status)
+# 用 /etc/rc.d/init.d/functions 中的函数 status 查看守护进程 yum-updatesd 的状态
+status yum-updatesd
+# 将函数 status 的返回值赋予变量 RETVAL
+RETVAL=$?
+;;
+*)
+# 对于$1的其他值显示用法
+echo $"Usage: $0 {start|stop|status|restart|reload|force-reload|condrestart}"
+# 退出本脚本，并以 1 为该脚本的返回值
+exit 1
+esac
+# 退出本脚本，并以变量 RETVAL 的值为该脚本的返回值
+exit $RETVAL
+
+#  http://www.oschina.net/question/62530_18328
+#  http://www.cppblog.com/fwxjj/archive/2011/02/18/140284.html
