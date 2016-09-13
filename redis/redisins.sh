@@ -15,6 +15,7 @@ mkdir /etc/redis
 
 groupadd -g 804 redis 
 useradd -s /sbin/nologin -g redis redis ;
+mkdir -p  /data/logs/
 mkdir -p  /data/redis/6379
 touch /data/logs/redis_6379.log
 chown -R redis:redis  /data/redis/
