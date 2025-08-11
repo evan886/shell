@@ -2,7 +2,7 @@
 #2.拉回来
 git pull
 
-# rds_oracle_instance_classes ["db.m5.2xlarge"]
+# rds_oracle_instance_classes ["db.m5.2xlarge", "db.t3.xlarge"]
 #33.添加和推上去 Aug 2025
 
 
