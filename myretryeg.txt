@@ -1,0 +1,132 @@
+一个或多个参数** 来控制：
+
+* 当日志打包（或其他运维动作）失败时，**自动 retry**。
+* retry 次数和间隔由参数控制。
+
+
+```ksh
+#!/bin/ksh
+
+# 参数说明：
+# 1: 系统名称
+# 2: 任务名称
+# 3: 是否需要响应 (Y/N)
+# 4: 环境 (DEV/TEST/PROD)
+# 5: 地区 (如 HK, CN)
+# 6: 日志目录
+# 7: 额外选项（可为空，比如 CLEAN）
+# 8: retry 次数（可选，默认 1）
+# 9: retry 间隔秒数（可选，默认 5 秒）
+
+SYSTEM_NAME=$1
+JOB_NAME=$2
+NEED_RESPONSE=$3
+ENV=$4
+REGION=$5
+LOG_DIR=$6
+OPTIONAL=$7
+RETRY_COUNT=${8:-1}   # 如果没传第8个参数，默认 1 次
+RETRY_INTERVAL=${9:-5}  # 如果没传第9个参数，默认 5 秒
+#
+# 正常运行（无 retry 参数，默认只跑 1 次）
+#./batch_backup.ksh MySys BackupJob Y PROD HK /var/logs
+
+# 设置 retry 3 次，每次间隔 10 秒
+#./batch_backup.ksh MySys BackupJob Y PROD HK /var/logs CLEAN 3 10
+
+
+#
+BACKUP_FILE="${LOG_DIR}/${SYSTEM_NAME}_${JOB_NAME}_$(date +%Y%m%d%H%M%S).tar.gz"
+
+# 任务函数
+do_backup() {
+  tar -czf "$BACKUP_FILE" $LOG_DIR/*.log 2>/dev/null
+}
+
+# 带 retry 的逻辑
+i=1
+while [ $i -le $RETRY_COUNT ]
+do
+  echo "[$SYSTEM_NAME][$JOB_NAME] 第 $i 次尝试备份日志..."
+  do_backup
+  if [ $? -eq 0 ]; then
+    echo "[$SYSTEM_NAME][$JOB_NAME] 成功备份到 $BACKUP_FILE"
+    break
+  else
+    echo "[$SYSTEM_NAME][$JOB_NAME] 备份失败 (第 $i 次)"
+    if [ $i -lt $RETRY_COUNT ]; then
+      echo "等待 $RETRY_INTERVAL 秒后重试..."
+      sleep $RETRY_INTERVAL
+    fi
+  fi
+  i=$((i+1))
+done
+
+# 如果所有 retry 都失败
+if [ $i -gt $RETRY_COUNT ]; then
+  echo "[$SYSTEM_NAME][$JOB_NAME] 多次尝试后仍失败"
+  exit 2
+fi
+
+# 可选清理
+if [ "$OPTIONAL" = "CLEAN" ]; then
+  echo "[$SYSTEM_NAME][$JOB_NAME] 清理旧日志..."
+  rm -f $LOG_DIR/*.log
+fi
+
+# 响应
+if [ "$NEED_RESPONSE" = "Y" ]; then
+  echo "[$SYSTEM_NAME][$JOB_NAME][$ENV][$REGION] 任务完成"
+fi
+
+exit 0
+```
+
+---
+
+### 使用示例
+
+```bash
+# 正常运行（无 retry 参数，默认只跑 1 次）
+./backup.ksh MySys BackupJob Y PROD HK /var/logs
+
+# 设置 retry 3 次，每次间隔 10 秒
+./backup.ksh MySys BackupJob Y PROD HK /var/logs CLEAN 3 10
+```
+
+这样：
+
+* 第 8 个参数控制重试次数；
+* 第 9 个参数控制重试间隔秒数；
+* 没传则默认 1 次、间隔 5 秒。
+
+---
+
+root@myxps:~# ./retr.sh 
+[][] 第 1 次尝试备份日志...
+[][] 备份失败 (第 1 次)
+[][] 多次尝试后仍失败
+
+没有这个目录 故意试错 
+root@myxps:~# ls /var/logs/kibana 
+ls: 无法访问 '/var/logs/kibana': 没有那个文件或目录
+
+
+root@myxps:~# ./retr.sh MySys BackupJob Y PROD HK /var/logs/kibana CLEAN 3 10
+[MySys][BackupJob] 第 1 次尝试备份日志...
+[MySys][BackupJob] 备份失败 (第 1 次)
+等待 10 秒后重试...
+[MySys][BackupJob] 第 2 次尝试备份日志...
+[MySys][BackupJob] 备份失败 (第 2 次)
+等待 10 秒后重试...
+[MySys][BackupJob] 第 3 次尝试备份日志...
+[MySys][BackupJob] 备份失败 (第 3 次)
+[MySys][BackupJob] 多次尝试后仍失败
+
+
+root@myxps:~# ./retr.sh MySys BackupJob Y PROD HK /var/log/kibana CLEAN 3 10
+[MySys][BackupJob] 第 1 次尝试备份日志...
+[MySys][BackupJob] 成功备份到 /var/log/kibana/MySys_BackupJob_20250908232939.tar.gz
+[MySys][BackupJob] 清理旧日志...
+[MySys][BackupJob][PROD][HK] 任务完成
+root@myxps:~# 
