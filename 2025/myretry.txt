@@ -1,8 +1,32 @@
 retry  1次等于 rerun
 
 
-下面给出一段**可直接嵌入**你现有 `batch.sh` 的 **“Oracle 状态检查 + 自动重试”** 最小片段。  
-思路：
+没有这个目录 故意试错
+root@myxps:~# ls /var/logs/kibana
+ls: 无法访问 '/var/logs/kibana': 没有那个文件或目录
+
+
+root@myxps:~# ./retr.sh MySys BackupJob Y PROD HK /var/logs/kibana CLEAN 3 10
+[MySys][BackupJob] 第 1 次尝试备份日志...
+[MySys][BackupJob] 备份失败 (第 1 次)
+等待 10 秒后重试...
+[MySys][BackupJob] 第 2 次尝试备份日志...
+[MySys][BackupJob] 备份失败 (第 2 次)
+等待 10 秒后重试...
+[MySys][BackupJob] 第 3 次尝试备份日志...
+[MySys][BackupJob] 备份失败 (第 3 次)
+[MySys][BackupJob] 多次尝试后仍失败
+
+
+root@myxps:~# ./retr.sh MySys BackupJob Y PROD HK /var/log/kibana CLEAN 3 10
+[MySys][BackupJob] 第 1 次尝试备份日志...
+[MySys][BackupJob] 成功备份到 /var/log/kibana/MySys_BackupJob_20250908232939.tar.gz
+[MySys][BackupJob] 清理旧日志...
+[MySys][BackupJob][PROD][HK] 任务完成
+root@myxps:~#
+
+
+
 
 1. 用 `sqlplus -s` 只抓最新一条记录的 `STATUS`（或你库里的字段名）。  
 2. 若状态 **不是** `COMPLETED` 就等 30s 再重跑，最多 `MAX_RETRY` 次（默认 3）。  
