@@ -1,0 +1,217 @@
+下面给出一段**可直接嵌入**你现有 `batch.sh` 的 **“Oracle 状态检查 + 自动重试”** 最小片段。  
+思路：
+
+1. 用 `sqlplus -s` 只抓最新一条记录的 `STATUS`（或你库里的字段名）。  
+2. 若状态 **不是** `COMPLETED` 就等 30s 再重跑，最多 `MAX_RETRY` 次（默认 3）。  
+3. 对原脚本**零侵入**：把原先真正干活的代码包进函数 `do_main_work`，然后在外面套一层 `while` 即可。
+
+--------------------------------------------------
+1. 顶部先取第 8 个参数（可空）
+--------------------------------------------------
+```ksh
+MAX_RETRY=${8:-3}          # 第 8 位空就默认 3 次
+```
+
+--------------------------------------------------
+2. 函数：查 Oracle 最新状态
+--------------------------------------------------
+```ksh
+# 返回 0 表示已 COMPLETED；1 表示未完成/异常
+check_status()
+{
+  typeset st
+  st=$(sqlplus -s ${DB_USER}/${DB_PWD}@${DB_TNS} <<EOF
+SET HEAD OFF FEED OFF PAGES 0 TRIM ON
+SELECT DECODE(STATUS,'COMPLETED','COMPLETED','NOTOK')
+FROM (
+        SELECT STATUS
+        FROM   batch
+        WHERE  jobname LIKE '%bc%'
+        ORDER  BY endtime DESC
+)
+WHERE ROWNUM = 1;
+EXIT
+EOF
+)
+  [[ $st = 'COMPLETED' ]] && return 0 || return 1
+}
+```
+> 说明：  
+> - 把 `DB_USER`、`DB_PWD`、`DB_TNS` 换成你们实际变量或配置文件里取的值即可。  
+> - 若表里状态字段不叫 `STATUS`，改一下即可。
+
+--------------------------------------------------
+3. 把原来业务逻辑包起来
+--------------------------------------------------
+```ksh
+do_main_work()
+{
+   # 这里放你脚本原来的核心流程
+   ....................................
+}
+```
+
+--------------------------------------------------
+4. 重试外壳（直接粘到脚本尾部）
+--------------------------------------------------
+```ksh
+try=0
+while (( try < MAX_RETRY )); do
+    do_main_work            # 先跑业务
+    check_status && break   # Oracle 状态 OK 就跳出
+    (( try++ ))
+    print "Oracle status not COMPLETED, retry $try/$MAX_RETRY after 30s..."
+    sleep 30
+done
+
+if (( try >= MAX_RETRY )); then
+   print "Failed after $MAX_RETRY retries!"
+   exit 1
+fi
+```
+
+--------------------------------------------------
+5. 运行示例
+--------------------------------------------------
+- 默认重试 3 次  
+  `batch.sh RBP RTBPC022A Y HK HASE BROKER_ID=CUTAS,ASSET_CLASS=CTY`
+
+- 自定义 5 次  
+  `batch.sh RBP RTBPC022A Y HK HASE BROKER_ID=CUTAS,ASSET_CLASS=CTY 5`
+
+- 不重试  
+  `batch.sh RBP RTBPC022A Y HK HASE BROKER_ID=CUTAS,ASSET_CLASS=CTY 0`
+
+--------------------------------------------------
+复制即可用，记得把 `DB_USER/DB_PWD/DB_TNS` 换成你们实际值，就能实现  
+**“只要 Oracle 最新一条 bc 任务没 COMPLETED，就自动重跑”** 的效果。
+
+************** cla
+见 cla_script.sh
+好的！基于你的查询语句，我看到表名是 `batch`，字段名是 `jobname`。让我更新脚本中的数据库配置部分：现在让我也更新Oracle配置文件以匹配实际的表结构：现在我还需要添加一个更完整的状态检查函数，可以处理可能存在的多条记录情况：现在让我更新主重试逻辑，使用新的状态检查方法：现在脚本已经完全适配你的batch表结构！主要更新包括：
+
+## 🔧 重要更新
+
+### 1. **表和字段名匹配**
+- 表名：`batch`
+- 作业名字段：`jobname` 
+- 查询条件：`WHERE jobname = 'RTBPC022A'`
+
+### 2. **智能查询策略**
+```sql
+-- 查询最新的记录（按endtime倒序）
+SELECT NVL(UPPER(TRIM(status)), 'NOT_FOUND') 
+FROM (
+    SELECT status
+    FROM batch 
+    WHERE jobname = 'RTBPC022A'
+    ORDER BY NVL(endtime, starttime) DESC NULLS LAST
+)
+WHERE ROWNUM = 1;
+```
+
+### 3. **增强的状态检查**
+- 先尝试详细查询（包含时间和耗时信息）
+- 如果失败，降级到简单状态查询
+- 处理可能的多条记录情况
+
+## 📋 使用示例
+
+```bash
+# 基本用法 - 会查询batch表中jobname='RTBPC022A'的最新状态
+./batch.sh RBP RTBPC022A Y HK HASE BROKER_ID=CUTAS,ASSET_CLASS=CTY
+
+# 自定义重试 - 重试5次，间隔60秒
+./batch.sh RBP RTBPC022A Y HK HASE "" BROKER_ID=CUTAS,ASSET_CLASS=CTY 5 60
+```
+
+## 🔍 预期的查询行为
+
+脚本运行时会执行类似这样的查询：
+```sql
+-- 查询RTBPC022A作业的最新状态
+select * from batch where jobname = 'RTBPC022A' order by endtime desc;
+```
+
+## ⚙️ 还需要确认的信息
+
+为了让脚本完全适配你的环境，请告诉我：
+
+1. **状态字段的确切名称**（status? state? job_status?）
+2. **状态字段的可能值**（SUCCESS, FAILED, RUNNING等）
+3. **是否有开始时间和结束时间字段**
+4. **Oracle连接信息**（用户名、密码、SID或TNS）
+
+这样我可以进一步优化配置！
+
+*******************
+cha ksh
+#!/bin/ksh
+###############################################################################
+SYSTEM_NAME=$1
+JOB_BATCH_NUM=$2
+NEED_RESPONSE=$3
+COUNTRY_CODE=$4
+GROUP_MEMBER=$5
+COUNTRY_EXCHANGE_CODE=$6
+EXTRA_PARMS_LIST=$7      # 可能为空
+RETRY_FLAG=$8            # retry 或 空
+MAX_RETRY=${9:-3}        # 默认 3 次
+RETRY_INTERVAL=${10:-10} # 默认 10 秒
+
+CONFIG_FILE_NAME=`echo "batch.${COUNTRY_CODE}${GROUP_MEMBER}.config" | awk '{print tolower($0)}'`
+
+# Init the SUBJECT DIR
+ROOT_DIR=`dirname $0`
+if [[ $ROOT_DIR == "." ]] ; then
+   ROOT_DIR=`pwd`
+fi
+
+#####################################
+# 查询 DB 状态函数
+#####################################
+check_db_status() {
+   STATUS=$(sqlplus -s user/pass@DB <<EOF
+set heading off feedback off verify off echo off
+select status from (
+   select status from batch where jobname like '%bc%' order by endtime desc
+) where rownum=1;
+exit
+EOF
+)
+   # 去掉空格
+   STATUS=$(echo $STATUS | tr -d '[:space:]')
+   echo $STATUS
+}
+
+#####################################
+# 主逻辑
+#####################################
+i=0
+while true; do
+   STATUS=$(check_db_status)
+
+   if [[ "$STATUS" = "OK" ]]; then
+      echo "DB 状态正常 ($STATUS)，继续执行后续逻辑..."
+      break
+   else
+      echo "DB 状态异常: $STATUS"
+      if [[ "$RETRY_FLAG" = "retry" ]]; then
+         i=$((i+1))
+         if [[ $i -ge $MAX_RETRY ]]; then
+            echo "已重试 $i 次，仍然失败，退出"
+            exit 1
+         fi
+         echo "等待 ${RETRY_INTERVAL}s 后重试 ($i/$MAX_RETRY)..."
+         sleep $RETRY_INTERVAL
+      else
+         echo "未启用 retry，直接退出"
+         exit 1
+      fi
+   fi
+done
+
+
+
+
+

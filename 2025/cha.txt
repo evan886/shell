@@ -1,0 +1,107 @@
+👌 那我帮你整理一个 **兼容模式版本**：
+
+* **保持原有 7 个参数不变**（所以现有调用方式不受影响）。
+* **新增第 8 个参数**：如果传 `retry`，就会启用重试功能；如果不传，就保持原样。
+* 可选：第 9、第 10 参数控制最大重试次数、间隔秒数（不传则用默认值）。
+
+---
+
+### 脚本改造（兼容版）
+
+```ksh
+#!/bin/ksh
+###############################################################################
+SYSTEM_NAME=$1
+JOB_BATCH_NUM=$2
+NEED_RESPONSE=$3
+COUNTRY_CODE=$4
+GROUP_MEMBER=$5
+COUNTRY_EXCHANGE_CODE=$6
+EXTRA_PARMS_LIST=$7      # 可能为空
+RETRY_FLAG=$8            # retry 或 空
+MAX_RETRY=${9:-3}        # 默认 3 次
+RETRY_INTERVAL=${10:-10} # 默认 10 秒
+
+CONFIG_FILE_NAME=`echo "batch.${COUNTRY_CODE}${GROUP_MEMBER}.config" | awk '{print tolower($0)}'`
+
+# Init the SUBJECT DIR
+ROOT_DIR=`dirname $0`
+if [[ $ROOT_DIR == "." ]] ; then
+   ROOT_DIR=`pwd`
+fi
+
+#####################################
+# 查询 DB 状态函数
+#####################################
+check_db_status() {
+   STATUS=$(sqlplus -s user/pass@DB <<EOF
+set heading off feedback off verify off echo off
+select status from (
+   select status from batch where jobname like '%bc%' order by endtime desc
+) where rownum=1;
+exit
+EOF
+)
+   STATUS=$(echo $STATUS | tr -d '[:space:]')
+   echo $STATUS
+}
+
+#####################################
+# 主逻辑
+#####################################
+i=0
+while true; do
+   STATUS=$(check_db_status)
+
+   if [[ "$STATUS" = "OK" ]]; then
+      echo "DB 状态正常 ($STATUS)，继续执行后续逻辑..."
+      break
+   else
+      echo "DB 状态异常: $STATUS"
+      if [[ "$RETRY_FLAG" = "retry" ]]; then
+         i=$((i+1))
+         if [[ $i -ge $MAX_RETRY ]]; then
+            echo "已重试 $i 次，仍然失败，退出"
+            exit 1
+         fi
+         echo "等待 ${RETRY_INTERVAL}s 后重试 ($i/$MAX_RETRY)..."
+         sleep $RETRY_INTERVAL
+      else
+         echo "未启用 retry，直接退出"
+         exit 1
+      fi
+   fi
+done
+```
+
+---
+
+### 使用方式
+
+#### 1. 老的调用方式（不变）
+
+```bash
+./batch.sh RBP RTBPC022A Y HK HASE BROKER_ID=CUTAS,ASSET_CLASS=CTY
+```
+
+👉 不会 retry，DB 状态不正常就直接退出。
+
+#### 2. 新的调用方式（开启 retry）
+
+```bash
+./batch.sh RBP RTBPC022A Y HK HASE BROKER_ID=CUTAS,ASSET_CLASS=CTY retry
+```
+
+👉 会自动 retry，默认 3 次，每次间隔 10 秒。
+
+#### 3. 高级调用（自定义重试次数和间隔）
+
+```bash
+./batch.sh RBP RTBPC022A Y HK HASE BROKER_ID=CUTAS,ASSET_CLASS=CTY retry 5 20
+```
+
+👉 retry 5 次，每次间隔 20 秒。
+
+---
+
+要不要我帮你再加一个功能：**把失败日志写到单独文件**，比如 `retry.log`，这样方便你追踪 retry 过程？

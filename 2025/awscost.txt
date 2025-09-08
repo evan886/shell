@@ -1,0 +1,143 @@
+一、确认消费来源
+
+1.进入 AWS 控制台 → Billing → Cost Explorer
+
+设置时间范围：只看 周六那一天（Day level granularity）。
+
+按 Service 查看：哪个服务突然增加（常见：EC2、Data Transfer、S3、CloudFront、RDS、Redshift、Athena 等）。
+
+再 drill down 到 Usage Type，确认是 “按小时计费” 还是 “流量/存储” 产生的费用。
+
+2.AWS Cost Anomaly Detection
+
+如果你之前没开，可以现在启用，帮你发现是不是异常 spike。
+
+二、常见导致费用飙升的场景
+
+EC2
+
+不小心开了很多大实例（p3、p4、m6、r7 等高价机器）。
+
+Spot → 按需切换导致高额。
+
+Data Transfer
+
+出站流量（特别是 跨区流量、公网出口流量）突然很高。
+
+S3
+
+大量 PUT/GET 请求（API 滥用、脚本异常）。
+
+Glacier retrieval（大规模数据取回）。
+
+CloudFront
+
+流量暴涨（可能是 DDoS 或服务访问量异常）。
+
+EKS / Lambda
+
+异常调用次数激增。
+
+第三方 Marketplace
+
+不小心订阅了昂贵的 SaaS/AMI。
+
+三、安全检查
+
+IAM → Access Advisor
+
+查看周六有没有 API 被异常调用。
+
+CloudTrail Logs
+
+过滤周六时间，查看是否有人启动了大量实例 / 导出数据。
+
+GuardDuty
+
+看看有没有安全警报（挖矿 / 未授权访问）。
+
+一个 AWS CLI 命令，你可以直接在本地或者 CloudShell 里运行，快速定位周六哪个服务的费用最高。
+
+aws ce get-cost-and-usage \
+  --time-period Start=2025-09-06,End=2025-09-07 \
+  --granularity=DAILY \
+  --metrics "UnblendedCost" \
+  --group-by Type=DIMENSION,Key=SERVICE
+
+
+这个命令会返回 JSON，里面会显示各个 AWS Service 的费用，比如：
+
+{
+  "ResultsByTime": [
+    {
+      "TimePeriod": {
+        "Start": "2025-09-06",
+        "End": "2025-09-07"
+      },
+      "Groups": [
+        {
+          "Keys": ["Amazon Elastic Compute Cloud - Compute"],
+          "Metrics": {"UnblendedCost": {"Amount": "550.00", "Unit": "USD"}}
+        },
+        {
+          "Keys": ["Amazon Simple Storage Service"],
+          "Metrics": {"UnblendedCost": {"Amount": "200.00", "Unit": "USD"}}
+        }
+      ]
+    }
+  ]
+}
+
+
+👌 那我给你一个简单的 bash 脚本，用 AWS CLI 把周六的费用 Top 5 服务/用量类型打印出来，方便排查：
+
+#!/bin/bash
+# check_cost.sh
+# 用法: ./check_cost.sh 2025-09-06 2025-09-07
+# Start=当天, End=次日
+
+START_DATE=$1
+END_DATE=$2
+
+echo "=== AWS Cost Report ($START_DATE ~ $END_DATE) ==="
+
+# Top 5 服务费用
+echo -e "\n--- Top 5 Services ---"
+aws ce get-cost-and-usage \
+  --time-period Start=$START_DATE,End=$END_DATE \
+  --granularity=DAILY \
+  --metrics "UnblendedCost" \
+  --group-by Type=DIMENSION,Key=SERVICE \
+  --query "ResultsByTime[0].Groups[*].{Service:Keys[0],Cost:Metrics.UnblendedCost.Amount}" \
+  --output table | sort -k2 -nr | head -n 6
+
+# Top 5 用量类型
+echo -e "\n--- Top 5 UsageTypes ---"
+aws ce get-cost-and-usage \
+  --time-period Start=$START_DATE,End=$END_DATE \
+  --granularity=DAILY \
+  --metrics "UnblendedCost" \
+  --group-by Type=DIMENSION,Key=USAGE_TYPE \
+  --query "ResultsByTime[0].Groups[*].{UsageType:Keys[0],Cost:Metrics.UnblendedCost.Amount}" \
+  --output table | sort -k2 -nr | head -n 6
+
+运行（比如要查 2025-09-06 周六 的费用）：
+./check_cost.sh 2025-09-06 2025-09-07
+
+output 
+=== AWS Cost Report (2025-09-06 ~ 2025-09-07) ===
+
+--- Top 5 Services ---
+| Service                                   | Cost   |
+|-------------------------------------------|--------|
+| Amazon Elastic Compute Cloud - Compute    | 550.00 |
+| Amazon Simple Storage Service             | 200.00 |
+| AWS Data Transfer                         | 50.00  |
+
+--- Top 5 UsageTypes ---
+| UsageType             | Cost   |
+|-----------------------|--------|
+| USW2-BoxUsage:m5.4xlarge | 300.00 |
+| USW2-DataTransfer-Out-Bytes | 150.00 |
+
+
