@@ -1,0 +1,25 @@
+日志里 **同一 `Batch job id` 可能出现多次**，想拿到 **最后一次出现** 的那条记录及其对应的 `Result:COMPLETED`，用 `ksh` + `awk` 这样写最稳：
+
+```ksh
+#!/usr/bin/env ksh
+awk '
+/Batch job id:/     { job=$4;  ts=NR }   # 记录 ID 与行号
+ts && /Result:/     { res=$2;  tsend=NR } # 紧接的 Result
+END                 { print "Batch job id:" job; print "Result:" res }
+' logfile
+```
+
+运行结果（基于你最后一段）：
+
+```
+Batch job id:RTPDS0231C
+Result:COMPLETED
+```
+
+------------------------------------------------
+关键点  
+1. 每次遇到 `Batch job id:` 都把 **当前行号** 记下来 (`ts=NR`)。  
+2. 只有 **行号大于 `ts`** 的 `Result:` 才被认为是**同一次任务**的结束，覆盖 `res`。  
+3. 文件读完时，变量 `job`/`res` 里就是**最后一次完整任务**的两行。  
+
+即使同一 ID 重复出现，也能保证拿到的是**最新一次**的完整结果。

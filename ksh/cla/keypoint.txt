@@ -1,0 +1,17 @@
+根据你的日志格式，你可以使用以下 ksh 脚本来获取特定 Batch job id 的最新结果：对于你的具体需求，最简单有效的一行命令是：
+
+```bash
+# 获取 RTPDS0231C 的最新结果
+grep -A 20 "Batch job id:RTPDS0231C" your_log_file.log | grep "Result:" | tail -1 | awk '{print $2}'
+```
+
+或者如果你想要更详细的信息：
+
+```bash
+# 获取带时间戳的完整信息
+awk '/Start Trigger Batch Job\.\.\./{block=""} {block=block $0 "\n"} /End Trigger Batch Job\.\.\./{if(block ~ /RTPDS0231C/) last_block=block} END{if(last_block) print last_block}' your_log_file.log | grep -E "(Batch job id:|Result:)"
+```
+
+根据你提供的日志，`RTPDS0231C` 的最新结果应该是 `COMPLETED`（时间戳：24:59:36 04/09/2025）。
+
+你可以将这些命令保存为脚本文件，然后根据需要调用相应的函数。记得将 `your_log_file.log` 替换为你实际的日志文件路径。

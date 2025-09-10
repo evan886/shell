@@ -1,0 +1,40 @@
+23:58:49 04/09/2025] ******************************
+[23:58:49 04/09/2025] Start Trigger Batch Job...
+[23:58:49 04/09/2025] Batch job id:RTPBC0052
+[23:58:49 04/09/2025] Country code:HK
+[23:58:49 04/09/2025] Group member:HASE
+[23:58:49 04/09/2025] Country exchange code:SZ
+[23:58:49 04/09/2025] Extra parms:
+[23:58:49 04/09/2025] The config file's path is: /appvol/rbpbc/key/trigger_batch.hkhase.conf
+[23:58:49 04/09/2025] now start to get batch controller url
+[23:58:49 04/09/2025] Start to trigger the Batch job
+[23:58:50 04/09/2025] Result:COMPLETED
+[23:58:50 04/09/2025] End Trigger Batch Job...
+[23:58:50 04/09/2025] ******************************
+[23:59:25 04/09/2025] ******************************
+[23:59:25 04/09/2025] Start Trigger Batch Job...
+[23:59:25 04/09/2025] Batch job id:RTPDS0231C
+[23:59:25 04/09/2025] Country code:HK
+[23:59:25 04/09/2025] Group member:HASE
+[23:59:25 04/09/2025] Country exchange code:ZZ
+[23:59:26 04/09/2025] Extra parms:
+[23:59:26 04/09/2025] The config file's path is: /appvol/rbpbc/key/trigger_batch.hkhase.config
+[23:59:26 04/09/2025] now start to get batch controller url
+[23:59:26 04/09/2025] Start to trigger the Batch job
+[23:59:36 04/09/2025] Result:COMPLETED
+[23:59:36 04/09/2025] End Trigger Batch Job...
+[23:59:36 04/09/2025] ******************************
+
+[24:59:25 04/09/2025] ******************************
+[24:59:25 04/09/2025] Start Trigger Batch Job...
+[24:59:25 04/09/2025] Batch job id:RTPDS0231C
+[24:59:25 04/09/2025] Country code:HK
+[24:59:25 04/09/2025] Group member:HASE
+[24:59:25 04/09/2025] Country exchange code:ZZ
+[24:59:26 04/09/2025] Extra parms:
+[24:59:26 04/09/2025] The config file's path is: /appvol/rbpbc/key/trigger_batch.hkhase.config
+[24:59:26 04/09/2025] now start to get batch controller url
+[24:59:26 04/09/2025] Start to trigger the Batch job
+[24:59:36 04/09/2025] Result:COMPLETED
+[24:59:36 04/09/2025] End Trigger Batch Job...
+[24:59:36 04/09/2025] ******************************
