@@ -1,0 +1,103 @@
+#!/bin/ksh
+
+LOGFILE="log.txt"
+JOB_ID="RTPBC0052"
+SCRIPT="./batch.sh"
+
+# 从log中获取最近一次这个job的状态
+last_status=$(awk -v job="$JOB_ID" '
+    /Batch job id:/ {jid=$0}
+    /Result:/ && jid ~ job {print $0; jid=""}
+' "$LOGFILE" | tail -1 | awk -F: '{print $2}')
+
+echo "最近一次 $JOB_ID 状态: $last_status"
+
+# 原始运行方式 (注意第7个参数可能为空)
+# 这里我先模拟一下原来的参数
+param1="RBF"
+param2="RTPBC0220A"
+param6="BROKER_ID=CUTAS,ASSET_CLASS=CIV"
+param7=""
+
+# 
+if [ "$last_status" = "FAILED" ]; then
+    echo "检测到 $JOB_ID 上次执行失败，开始重跑..."
+    $SCRIPT "$param1" "$param2" "$param3" "$param4" "$param5" "$param6" "$param7" "rerun" "retry"
+else
+    echo "last time success "
+fi
+
+
+
+#way 3 
+last_status=$(
+awk -v job="$JOB_ID" '
+  /Batch job id:/ {
+    # 如果该行包含目标 job id，则开启 found 标记
+    found = (index($0, job) > 0)
+    next
+  }
+  /Result:/ && found {
+    # 删除行中 "Result:" 前的所有内容，保留状态文本
+    sub(/.*Result:[ \t]*/, "", $0)
+    # 删除行尾空白
+    sub(/[ \t]+$/, "", $0)
+    last = $0        # 保存为 last（每次遇到都会覆盖，最终保留最后一次）
+    found = 0        # 取消 found，直到下一个 Batch job id
+  }
+  END {
+    if (last) print last
+  }
+' "$LOGFILE"
+)
+
+###### way 4 
+#!/bin/bash
+
+
+LOG_FILE="log.txt"
+RERUN_FLAG="$1"
+JOB_ID="$2"
+EXTRA_PARAM2="$6"
+OPTIONAL_PARAM="$7"  # 可能为空
+
+# 从日志中获取指定Job ID的最新状态
+get_job_status() {
+    local job_id="$1"
+
+    # 使用tac反向读取文件，找到最近出现的匹配记录
+    local status=$(tac "$LOG_FILE" | grep -A 10 -B 10 "Batch job id:${job_id}" | \
+                 grep "Result:" | head -n 1 | awk -F: '{print $2}' | tr -d ' ')
+
+    echo "${status:-NOT_FOUND}"
+}
+
+# 获取指定Job ID的状态
+JOB_STATUS=$(get_job_status "$JOB_ID")
+
+echo "Job ID: $JOB_ID"
+echo "Status: $JOB_STATUS"
+
+# 如果状态为FAILED，则执行重运行
+if [ "$JOB_STATUS" = "FAILED" ]; then
+    echo "Job failed, triggering rerun..."
+
+    # 构建参数数组，处理第7个参数可能为空的情况
+    PARAMS=("$RERUN_FLAG" "$JOB_ID" "$EXTRA_PARAM1" "$COUNTRY_CODE" "$GROUP_MEMBER" "$EXTRA_PARAM2")
+
+    # 只有当第7个参数不为空时才添加
+    if [ -n "$OPTIONAL_PARAM" ]; then
+        PARAMS+=("$OPTIONAL_PARAM")
+    fi
+
+    # 执行重运行命令
+    echo "Executing: batch.sh ${PARAMS[@]}"
+    # 取消下一行的注释以实际执行
+    # ./batch.sh "${PARAMS[@]}"
+
+elif [ "$JOB_STATUS" = "NOT_FOUND" ]; then
+    echo "Error: Job ID $JOB_ID not found in log file"
+    exit 1
+else
+    echo "Job completed successfully, no rerun needed"
+fi
