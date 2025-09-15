@@ -1,0 +1,27 @@
+#!/usr/bin/env ksh
+# -*- coding: utf-8 -*-
+LOG_FILE=/path/to/mylog.txt          # 改成真实路径
+JOB_ID=RTPDS0231C
+RESTART_CMD='systemctl restart your-batch.service'  # 改成你的重启命令
+
+# 取最近一次该 job 的 Result 值
+function last_result
+{
+    grep -F "$JOB_ID" "$LOG_FILE" | awk '/Result:/{print $NF}' | tail -1
+}
+
+prev=$(last_result)
+
+# tail -F 实时跟踪，日志切割也能续追
+tail -F -n 0 "$LOG_FILE" 2>/dev/null | while read -r line; do
+    # 只关心包含本 JOB_ID 且出现 Result 的行
+    if [[ "$line" == *"$JOB_ID"* ]] && [[ "$line" == *"Result:"* ]]; then
+        new=$(print -r -- "$line" | awk -F'Result:' '{print $2}' | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')
+        # 状态变化且新状态为 FAILED 才重启
+        if [[ "$new" != "$prev" ]] && [[ "$new" == "FAILED" ]]; then
+            print "$(date '+%F %T') $JOB_ID 状态变为 FAILED，执行重启 ..."
+            eval "$RESTART_CMD"
+        fi
+        prev="$new"
+    fi
+done
