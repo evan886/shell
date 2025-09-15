@@ -1,3 +1,25 @@
+#!/bin/bash
+
+LOG_FILE="/path/to/your/logfile.log"  # 替换为实际日志路径
+JOB_ID="RTPDS0231C"
+
+# 获取该作业的最新状态（按时间倒序取第一条）
+#LATEST_STATUS=$(tac "$LOG_FILE" | grep -A 10 -B 10 "Batch job id:${JOB_ID}" | grep "Result:" | head -n 1 | awk -F": " '{print $2}')
+LATEST_STATUS=$(tac "$LOG_FILE" | grep -A 10 -B 10 "Batch job id:${JOB_ID}" | grep "Result:" | head -n 1 | awk -F": " '{print $NF}')
+
+if [ "$LATEST_STATUS" == "FAILED" ]; then
+    echo "[$(date)] 检测到作业 ${JOB_ID} 失败，正在重启..."
+    
+    # 这里添加实际重启作业的命令
+    # 例如调用原有的触发脚本：
+    # /path/to/trigger_script.sh --job-id=${JOB_ID}
+    
+    echo "[$(date)] 已提交重启请求"
+else
+    echo "[$(date)] 作业 ${JOB_ID} 当前状态: ${LATEST_STATUS}，无需操作"
+fi
+
+k
 #!/usr/bin/env ksh
 # -*- coding: utf-8 -*-
 LOG_FILE=/path/to/mylog.txt          # 改成真实路径
