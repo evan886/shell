@@ -1,0 +1,2 @@
+aws logs describe-log-groups --log-group-name-prefix "/aws/rds/instance/" --query "logGroups[*].[logGroupName,creationTime,retentionInDays]"
+
