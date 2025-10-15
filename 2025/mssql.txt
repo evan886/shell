@@ -3,6 +3,18 @@ aws rds describe-option-groups \
   --region <你的Region>
 
 
+aws rds add-option-to-option-group \
+  --option-group-name sqlserver-prod-options \
+  --options "OptionName=SQLSERVER_AUDIT,OptionSettings=[
+    {Name=S3_BUCKET_ARN,Value=arn:aws:s3:::my-audit-bucket},
+    {Name=IAM_ROLE_ARN,Value=arn:aws:iam::123456789012:role/myRdsAuditRole},
+    {Name=RETENTION_TIME,Value=24},
+    {Name=ENABLE_COMPRESSION,Value=false}
+  ]" \
+##  --apply-immediately
+
+
+
 aws rds create-option-group \
   --option-group-name sqlserver-prod-copy \
   --engine-name sqlserver-ee \
