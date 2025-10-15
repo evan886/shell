@@ -1,3 +1,32 @@
+aws rds create-option-group \
+  --option-group-name sqlserver-prod-copy \
+  --engine-name sqlserver-ee \
+  --major-engine-version 15.00 \
+  --option-group-description "Copied from sqlserver-prod-optiongroup" \
+  --region ap-southeast-1
+
+
+aws rds add-option-to-option-group \
+  --option-group-name sqlserver-prod-copy \
+  --options "OptionName=SQLSERVER_BACKUP_RESTORE" \
+  --apply-immediately \
+  --region ap-southeast-1
+
+
+aws rds add-option-to-option-group \
+  --option-group-name sqlserver-prod-copy \
+  --options "OptionName=SQLSERVER_AUDIT,OptionSettings=[{Name=S3_BUCKET_ARN,Value=arn:aws:s3:::my-audit-bucket},{Name=IAM_ROLE_ARN,Value=arn:aws:iam::123456789012:role/myRdsAuditRole},{Name=ENABLE_COMPRESSION,Value=false},{Name=RETENTION_TIME,Value=24}]" \
+  --apply-immediately \
+  --region ap-southeast-1
+
+  aws rds describe-option-groups \
+  --option-group-name sqlserver-prod-copy \
+  --region ap-southeast-1
+
+
+
+
+###
 aws rds copy-option-group \
   --source-option-group-identifier <源OptionGroup名称> \
   --target-option-group-identifier <新OptionGroup名称> \
