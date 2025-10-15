@@ -1,3 +1,8 @@
+aws rds add-option-to-option-group \
+  --option-group-name sqlserver-audit-option-group \
+  --options OptionName=SQLSERVER_AUDIT,OptionSettings=[{Name=S3_BUCKET_ARN,Value=arn:aws:s3:::your-rds-audit-logs},{Name=IAM_ROLE_ARN,Value=arn:aws:iam::YOUR_ACCOUNT_ID:role/rds-sqlserver-audit-role},{Name=RETENTION_TIME,Value=24},{Name=ENABLE_COMPRESSION,Value=false}] \
+  --apply-immediately
+
 s3 
 aws s3api create-bucket \
   --bucket my-sqlserver-audit-bucket \
