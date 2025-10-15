@@ -1,0 +1,24 @@
+aws rds copy-option-group \
+  --source-option-group-identifier <源OptionGroup名称> \
+  --target-option-group-identifier <新OptionGroup名称> \
+  --target-option-group-description "<新OptionGroup的描述>" \
+  [--tags Key=Name,Value=tagname]
+
+
+aws rds copy-option-group \
+  --source-option-group-identifier sqlserver-prod-audit-group \
+  --target-option-group-identifier sqlserver-dr-audit-group \
+  --target-option-group-description "DR site audit config" \
+  --region ap-east-1 \
+  --tags Key=Environment,Value=DR
+
+
+三、将新 Option Group 应用到实例
+
+当复制好后，你可以把它关联到你的 RDS SQL Server 实例：
+
+aws rds modify-db-instance \
+  --db-instance-identifier rds-sqlserver-prod \
+  --option-group-name sqlserver-test-audit-group \
+  --apply-immediately
+
