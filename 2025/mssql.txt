@@ -1,3 +1,11 @@
+s3 
+aws s3api create-bucket \
+  --bucket my-sqlserver-audit-bucket \
+  --region ap-southeast-1 \
+  --create-bucket-configuration LocationConstraint=ap-southeast-1
+
+
+
 aws rds describe-option-groups \
   --option-group-name <原OptionGroup名称> \
   --region <你的Region>
