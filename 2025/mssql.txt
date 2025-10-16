@@ -1,3 +1,23 @@
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Effect": "Allow",
+      "Action": [
+        "s3:PutObject",
+        "s3:PutObjectAcl",
+        "s3:GetObject",
+        "s3:ListBucket"
+      ],
+      "Resource": [
+        "arn:aws:s3:::mslog",
+        "arn:aws:s3:::mslog/*"
+      ]
+    }
+  ]
+}
+
+
 aws rds add-option-to-option-group \
   --option-group-name sqlserver-audit-option-group \
   --options OptionName=SQLSERVER_AUDIT,OptionSettings=[{Name=S3_BUCKET_ARN,Value=arn:aws:s3:::your-rds-audit-logs},{Name=IAM_ROLE_ARN,Value=arn:aws:iam::YOUR_ACCOUNT_ID:role/rds-sqlserver-audit-role},{Name=RETENTION_TIME,Value=24},{Name=ENABLE_COMPRESSION,Value=false}] \
