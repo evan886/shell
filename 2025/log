@@ -1,0 +1,15 @@
+-- 查询所有审计日志
+fields @timestamp, @message
+| filter @message like /AUDIT:/
+| sort @timestamp desc
+| limit 100
+
+-- 按审计类型筛选
+fields @timestamp, @message
+| filter @message like /AUDIT:.*READ/
+| filter @message like /SELECT/
+
+-- 统计审计事件类型
+fields @message
+| parse @message /AUDIT:[^,]*,(?<audit_type>[^,]+),/
+| stats count() by audit_type
