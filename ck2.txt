@@ -1,0 +1,92 @@
+import tkinter as tk
+from tkinter import ttk, scrolledtext, messagebox
+from tkcalendar import Calendar
+import os
+from datetime import datetime
+
+# 日志存放目录
+LOG_DIR = "logs"
+os.makedirs(LOG_DIR, exist_ok=True)
+
+class SimpleLogApp:
+    def __init__(self, root):
+        self.root = root
+        self.root.title("📅 我的日志 - 简单版")
+        self.root.geometry("600x500")
+
+        # 当前选中的日期（字符串格式，如 "2024-06-01"）
+        self.selected_date = None
+
+        # 日历控件
+        self.cal = Calendar(
+            root,
+            selectmode='day',
+            year=datetime.now().year,
+            month=datetime.now().month,
+            day=datetime.now().day
+        )
+        self.cal.pack(pady=10, fill="x")
+
+        # 绑定日历选择事件
+        self.cal.bind("<<CalendarSelected>>", self.on_date_selected)
+
+        # 日志显示和编辑区域
+        self.log_text = scrolledtext.ScrolledText(
+            root, wrap=tk.WORD, width=70, height=20
+        )
+        self.log_text.pack(pady=10, padx=10, fill="both", expand=True)
+
+        # 保存按钮
+        save_btn = ttk.Button(root, text="💾 保存日志", command=self.save_log)
+        save_btn.pack(pady=5)
+
+        # 默认加载今天的日志
+        today_str = datetime.now().strftime("%Y-%m-%d")
+        self.load_log_for_date(today_str)
+
+    def on_date_selected(self, event):
+        """当用户点击日历上的某天时触发"""
+        selected_date_str = self.cal.get_date()  # 📌 已经是字符串，如 "2024-06-01"
+        self.selected_date = selected_date_str
+        self.load_log_for_date(selected_date_str)
+
+    def load_log_for_date(self, date_str):
+        """加载指定日期的日志内容"""
+        self.log_text.delete(1.0, tk.END)  # 清空编辑区
+        log_filename = os.path.join(LOG_DIR, f"log_{date_str}.txt")
+
+        if os.path.exists(log_filename):
+            try:
+                with open(log_filename, "r", encoding="utf-8") as f:
+                    content = f.read()
+                    self.log_text.insert(tk.END, content)
+            except Exception as e:
+                messagebox.showerror("读取错误", f"无法读取日志文件：{e}")
+        else:
+            # 如果没有日志，显示提示文本
+            self.log_text.insert(tk.END, f"📝 还没有为 {date_str} 写日志哦，开始写点什么吧～")
+
+        # 更新窗口标题显示当前日期
+        self.root.title(f"📅 我的日志 - {date_str}")
+
+    def save_log(self):
+        """保存当前编辑的日志到文件"""
+        if not self.selected_date:
+            messagebox.showwarning("未选择日期", "请先在日历中选择日期！")
+            return
+
+        date_str = self.selected_date  # 已经是字符串，如 "2024-06-01"
+        log_content = self.log_text.get(1.0, tk.END + "-1c")  # 获取文本，去掉末尾换行
+        log_filename = os.path.join(LOG_DIR, f"log_{date_str}.txt")
+
+        try:
+            with open(log_filename, "w", encoding="utf-8") as f:
+                f.write(log_content)
+            messagebox.showinfo("保存成功", f"✅ 日志已保存至：{date_str}")
+        except Exception as e:
+            messagebox.showerror("保存失败", f"❌ 无法保存日志：{e}")
+
+if __name__ == "__main__":
+    root = tk.Tk()
+    app = SimpleLogApp(root)
+    root.mainloop()
