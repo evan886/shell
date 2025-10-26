@@ -1,0 +1,108 @@
+import tkinter as tk
+from tkinter import ttk, scrolledtext, messagebox
+from tkcalendar import Calendar
+import os
+from datetime import datetime, date
+
+# 日志存放目录
+LOG_DIR = "logs"
+os.makedirs(LOG_DIR, exist_ok=True)
+
+class SimpleLogApp:
+    def __init__(self, root):
+        self.root = root
+        self.root.title("📅 我的日志 - 简单版")
+        self.root.geometry("600x500")
+
+        # 当前选中的日期（标准化为 YYYY-MM-DD 字符串）
+        self.selected_date = None
+
+        # 创建日历控件，默认高亮今天
+        today = date.today()
+        self.cal = Calendar(
+            root,
+            selectmode='day',
+            year=today.year,
+            month=today.month,
+            day=today.day
+        )
+        self.cal.pack(pady=10, fill="x")
+
+        # 绑定选择事件
+        self.cal.bind("<<CalendarSelected>>", self.on_date_selected)
+
+        # 文本编辑区
+        self.log_text = scrolledtext.ScrolledText(
+            root, wrap=tk.WORD, width=70, height=20
+        )
+        self.log_text.pack(pady=10, padx=10, fill="both", expand=True)
+
+        # 保存按钮
+        save_btn = ttk.Button(root, text="💾 保存日志", command=self.save_log)
+        save_btn.pack(pady=5)
+
+        # 强制设置日历选择为今天，并加载今天日志
+        today_str = today.strftime("%Y-%m-%d")
+        self.cal.selection_set(today)    # 让日历高亮今天
+        self.selected_date = today_str   # 保存为标准化字符串
+        self.load_log_for_date(today_str)
+
+    def on_date_selected(self, event):
+        """
+        当用户在日历上选中日期时触发。
+        使用 self.cal.selection_get() 获取 date 对象，然后转为 YYYY-MM-DD 字符串。
+        """
+        try:
+            # selection_get() 返回 datetime.date（比 get_date() 更稳健）
+            dt = self.cal.selection_get()
+            if isinstance(dt, (date, datetime)):
+                date_str = dt.strftime("%Y-%m-%d")
+            else:
+                # 兜底：如果不是 date 对象，就用字符串解析
+                date_str = datetime.strptime(self.cal.get_date(), "%m/%d/%Y").strftime("%Y-%m-%d")
+        except Exception:
+            # 最后兜底，直接按 get_date() 然后把 / 换成 -
+            raw = self.cal.get_date()
+            date_str = raw.replace("/", "-")
+
+        self.selected_date = date_str
+        self.load_log_for_date(date_str)
+
+    def load_log_for_date(self, date_str):
+        """加载指定日期的日志"""
+        self.log_text.delete(1.0, tk.END)
+        log_filename = os.path.join(LOG_DIR, f"log_{date_str}.txt")
+
+        if os.path.exists(log_filename):
+            try:
+                with open(log_filename, "r", encoding="utf-8") as f:
+                    self.log_text.insert(tk.END, f.read())
+            except Exception as e:
+                messagebox.showerror("读取错误", f"无法读取日志文件：{e}")
+        else:
+            self.log_text.insert(tk.END, f"📝 还没有为 {date_str} 写日志哦，开始写点什么吧～")
+
+        self.root.title(f"📅 我的日志 - {date_str}")
+
+    def save_log(self):
+        """保存当前日志"""
+        if not self.selected_date:
+            messagebox.showwarning("未选择日期", "请先在日历中选择日期！")
+            return
+
+        # 获取文本（去掉末尾可能的多余换行）
+        log_content = self.log_text.get(1.0, tk.END + "-1c")
+        log_filename = os.path.join(LOG_DIR, f"log_{self.selected_date}.txt")
+
+        try:
+            with open(log_filename, "w", encoding="utf-8") as f:
+                f.write(log_content)
+            messagebox.showinfo("保存成功", f"✅ 日志已保存至：{self.selected_date}")
+        except Exception as e:
+            messagebox.showerror("保存失败", f"❌ 无法保存日志：{e}")
+
+if __name__ == "__main__":
+    root = tk.Tk()
+    app = SimpleLogApp(root)
+    root.mainloop()
+
