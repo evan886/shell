@@ -14,8 +14,7 @@ class SimpleLogApp:
         self.root.title("📅 我的日志 - 简单版")
         self.root.geometry("600x500")
 
-        # ====== 全局字体设置：放在控件创建之前（但在 __init__ 内对 root 设置也可以） ======
-        # 在 main 里也可以设置一次：root.option_add("*Font", "微软雅黑 12")
+        # 👉 全局字体设置
         root.option_add("*Font", "微软雅黑 12")
 
         # 当前选中的日期（标准化为 YYYY-MM-DD 字符串）
@@ -39,8 +38,7 @@ class SimpleLogApp:
         self.log_text = scrolledtext.ScrolledText(
             root, wrap=tk.WORD, width=70, height=20
         )
-
-        # ====== 设置文本区背景颜色（创建后立即设置） ======
+        # 👉 设置文本区背景颜色
         self.log_text.configure(bg="#f8f8f8")
 
         self.log_text.pack(pady=10, padx=10, fill="both", expand=True)
@@ -51,34 +49,19 @@ class SimpleLogApp:
 
         # 强制设置日历选择为今天，并加载今天日志
         today_str = today.strftime("%Y-%m-%d")
-        try:
-            # 尽量使用 date 对象来选中
-            self.cal.selection_set(today)
-        except Exception:
-            # 兜底：直接用字符串
-            try:
-                self.cal.selection_set(today_str)
-            except Exception:
-                pass
-
+        self.cal.selection_set(today)    # 让日历高亮今天
         self.selected_date = today_str   # 保存为标准化字符串
         self.load_log_for_date(today_str)
 
     def on_date_selected(self, event):
-        """
-        当用户在日历上选中日期时触发。
-        使用 self.cal.selection_get() 获取 date 对象，然后转为 YYYY-MM-DD 字符串。
-        """
+        """当用户在日历上选中日期时触发"""
         try:
-            # selection_get() 返回 datetime.date（比 get_date() 更稳健）
             dt = self.cal.selection_get()
             if isinstance(dt, (date, datetime)):
                 date_str = dt.strftime("%Y-%m-%d")
             else:
-                # 兜底：如果不是 date 对象，就用字符串解析（不同 locale 可能不同）
                 date_str = datetime.strptime(self.cal.get_date(), "%m/%d/%Y").strftime("%Y-%m-%d")
         except Exception:
-            # 最后兜底，直接按 get_date() 然后把 / 换成 -
             raw = self.cal.get_date()
             date_str = raw.replace("/", "-")
 
@@ -107,7 +90,6 @@ class SimpleLogApp:
             messagebox.showwarning("未选择日期", "请先在日历中选择日期！")
             return
 
-        # 获取文本（去掉末尾可能的多余换行）
         log_content = self.log_text.get(1.0, tk.END + "-1c")
         log_filename = os.path.join(LOG_DIR, f"log_{self.selected_date}.txt")
 
@@ -120,7 +102,5 @@ class SimpleLogApp:
 
 if __name__ == "__main__":
     root = tk.Tk()
-    # 也可以把全局字体设置放在这里（效果一样）
-    root.option_add("*Font", "微软雅黑 12")
     app = SimpleLogApp(root)
     root.mainloop()
