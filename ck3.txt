@@ -3,7 +3,7 @@ from tkinter import ttk, scrolledtext, messagebox
 from tkcalendar import Calendar
 import os
 from datetime import datetime, date
-
+#nice one 
 # 日志存放目录
 LOG_DIR = "tklogs"
 os.makedirs(LOG_DIR, exist_ok=True)
@@ -13,6 +13,7 @@ class SimpleLogApp:
         self.root = root
         self.root.title("📅 我的日志 - 简单版")
         self.root.geometry("600x500")
+        self.auto_save()
 
         # 当前选中的日期（标准化为 YYYY-MM-DD 字符串）
         self.selected_date = None
@@ -100,6 +101,22 @@ class SimpleLogApp:
             messagebox.showinfo("保存成功", f"✅ 日志已保存至：{self.selected_date}")
         except Exception as e:
             messagebox.showerror("保存失败", f"❌ 无法保存日志：{e}")
+
+
+    def auto_save(self):
+        """定时自动保存当前日志 tab的得注意缩进"""
+        if self.selected_date:
+            try:
+                log_content = self.log_text.get(1.0, tk.END + "-1c")
+                log_filename = os.path.join(LOG_DIR, f"log_{self.selected_date}.txt")
+                with open(log_filename, "w", encoding="utf-8") as f:
+                    f.write(log_content)
+            except Exception as e:
+                print("自动保存失败：", e)
+        # 每 60 秒自动执行一次
+        self.root.after(60000, self.auto_save)
+
+            
 
 if __name__ == "__main__":
     root = tk.Tk()
