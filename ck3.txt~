@@ -80,7 +80,7 @@ class SimpleLogApp:
             except Exception as e:
                 messagebox.showerror("读取错误", f"无法读取日志文件：{e}")
         else:
-            self.log_text.insert(tk.END, f"📝 {date_str} \n")
+            self.log_text.insert(tk.END, f"📝 还没有为 {date_str} \n")
 
         self.root.title(f"📅 我的日志 - {date_str}")
 
