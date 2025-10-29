@@ -35,6 +35,9 @@ class SimpleLogApp:
         # 绑定选择事件
         self.cal.bind("<<CalendarSelected>>", self.on_date_selected)
 
+        # 绑定快捷键 Ctrl+S
+        root.bind("<Control-s>", lambda event: self.save_log())
+
         # 文本编辑区
         self.log_text = scrolledtext.ScrolledText(
             root, wrap=tk.WORD, width=70, height=20
