@@ -1,0 +1,10 @@
+# check_ssm_python.ps1
+$docs = aws ssm list-documents --filters Key=Owner,Values=Self Key=DocumentType,Values=Automation --query "DocumentIdentifiers[*].Name" --output text
+foreach ($name in $docs -split "`t") {
+    $content = aws ssm get-document --name $name --document-format YAML --query Content --output text
+    if ($content -match 'python3\.[6-9]') {
+        Write-Host "❌ $name  仍包含旧版本" -ForegroundColor Red
+    } else {
+        Write-Host "✅ $name  已干净" -ForegroundColor Green
+    }
+}
