@@ -8,3 +8,5 @@ foreach ($name in $docs -split "`t") {
         Write-Host "✅ $name  已干净" -ForegroundColor Green
     }
 }
+
+Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass
