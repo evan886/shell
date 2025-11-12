@@ -1,0 +1,31 @@
+---
+description: Verify the AWS Systems Manager Automation runtime Python version
+schemaVersion: '0.3'
+assumeRole: '{{ AutomationAssumeRole }}'
+
+parameters:
+  Runtime:
+    type: String
+    default: python3.11
+    description: "Runtime to test, e.g., python3.10 or python3.11"
+
+mainSteps:
+  - name: CheckPythonRuntime
+    action: aws:executeScript
+    inputs:
+      Runtime: '{{ Runtime }}'
+      Handler: main
+      Script: |
+        import sys
+        import json
+        import platform
+
+        def main(event, context):
+            return {
+                "python_version": sys.version,
+                "python_executable": sys.executable,
+                "python_platform": sys.platform,
+                "platform_info": platform.platform(),
+                "python_compiler": platform.python_compiler()
+            }
+
