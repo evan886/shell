@@ -1,0 +1,12 @@
+aws ssm list-documents \
+  --filters Key=Owner,Values=Self Key=DocumentType,Values=Automation \
+  --query 'DocumentIdentifiers[*].[Name]' \
+  --output text | \
+while read -r name; do
+  content=$(aws ssm get-document --name "$name" --document-format YAML --query Content --output text)
+  if grep -Eq 'python3\.[6-9]' <<< "$content"; then
+    echo "❌ $name 仍包含旧版本"
+  else
+    echo "✅ $name 已干净"
+  fi
+done
