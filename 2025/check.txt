@@ -1,0 +1,19 @@
+@echo off
+setlocal enabledelayedexpansion
+
+rem 获取文档列表
+for /f "usebackq tokens=*" %%i in (
+  `aws ssm list-documents --filters Key=Owner,Values=Self Key=DocumentType,Values=Automation --query "DocumentIdentifiers[*].Name" --output text`
+) do (
+  set "docName=%%i"
+  rem 拉取 YAML 内容
+  aws ssm get-document --name "!docName!" --document-format YAML --query Content --output text > "%temp%\!docName!.yaml"
+  findstr /R /C:"python3\.[6-9]" "%temp%\!docName!.yaml" >nul
+  if !errorlevel! equ 0 (
+    echo ❌ !docName! 仍包含旧版本
+  ) else (
+    echo ✅ !docName! 已干净
+  )
+  del "%temp%\!docName!.yaml" >nul 2>&1
+)
+endlocal
