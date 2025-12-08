@@ -1,0 +1,8 @@
+aws autoscaling put-scheduled-update-group-action \
+  --auto-scaling-group-name <ASG_NAME> \
+  --scheduled-action-name <ACTION_NAME> \
+  --start-time 2025-12-10T08:00:00Z \        # 或 --recurrence "0 8 * * MON-FRI"
+  --desired-capacity 4 \
+  --min-size 2 \
+  --max-size 6 \
+  --time-zone Asia/Shanghai
