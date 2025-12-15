@@ -1,0 +1,6 @@
+fields @timestamp, log, verb, resource, @message
+| filter (resource = 'ingresses' or log like /ingress|Ingress/) 
+  and (log like /error|Error|ERROR|timeout|Timeout|failed|Failed|FAILED|unauthorized|forbidden/)
+| sort @timestamp desc
+| limit 100
+
