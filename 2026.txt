@@ -1,0 +1,1 @@
+k8s-kubernet-dashboar-f942fd149b-78069681.ap-east-1.elb.amazonaws.com
