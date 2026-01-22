@@ -1,3 +1,162 @@
+
+下面把「用 IngressGroup 把 N 个 Ingress 压成 1 个 ALB」的 全部细节、命令、排错、回滚 再完整给一遍，复制即可用。
+目标：10 min 内收回 (N-1)×2 个私有 IP，解决 subnet 只剩 2 个 IP 的燃眉之急。
+一、前置确认（30 s）
+
+    集群用的是 AWS Load Balancer Controller ≥ v2.2.0（EKS 1.19+ 默认已满足）。
+    查看当前 ALB 数量（下面命令能直接看到每个 ALB 占 2 个子网 IP）：
+
+bash
+复制
+
+aws elbv2 describe-load-balancers \
+  --query 'LoadBalancers[?Type==`application`]' \
+  --output table | grep -E 'LoadBalancerName|Subnet'
+
+    记录剩余 IP：
+
+bash
+复制
+
+aws ec2 describe-subnets --subnet-ids <subnet-xxx> \
+  --query 'Subnets[0].AvailableIpAddressCount'
+
+二、合并操作（5 步，全部在线完成）
+表格
+复制
+步骤	动作	命令/示例	效果
+1	选「保留 ALB」	挑域名/证书/WAF 已配好的那条 Ingress，记下名字，例如 ingress-main	后续所有规则都合并到它上面
+2	给「保留 ALB」打 group（如果之前没打）	kubectl annotate ingress ingress-main alb.ingress.kubernetes.io/group.name=shared-alb	它成为主 ALB
+3	把其余 Ingress 统统塞进同一个 group	批量 patch：
+kubectl get ingress -A -o json | jq -r '.items[] | select(.metadata.annotations["kubernetes.io/ingress.class"]=="alb" and .metadata.annotations["alb.ingress.kubernetes.io/group.name"]!="shared-alb") | "\(.metadata.namespace)/\(.metadata.name)"' | xargs -I {} kubectl annotate ingress {} -n $(echo {} | cut -d/ -f1) alb.ingress.kubernetes.io/group.name=shared-alb	每改一条，controller 把规则追加到主 ALB，旧 ALB 被删除 → +2 IP
+4	观察 ALB 数量实时下降	watch -n 5 'aws elbv2 describe-load-balancers --query "length(LoadBalancers[?Type==\application`])"'`	数字每减 1，IP 数 +2
+5	确认 IP 已释放	aws ec2 describe-subnets --subnet-ids <subnet-xxx> --query 'Subnets[0].AvailableIpAddressCount'	通常 3 min 内从 2 → 10+
+三、YAML 最小示范（单文件多 Ingress 写法）
+主 Ingress（已存在）：
+yaml
+复制
+
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: ingress-main
+  annotations:
+    kubernetes.io/ingress.class: alb
+    alb.ingress.kubernetes.io/scheme: internal
+    alb.ingress.kubernetes.io/group.name: shared-alb   # 关键
+spec:
+  rules:
+  - host: api.a.com
+    http:
+      paths:
+      - path: /
+        backend:
+          service:
+            name: svc-a
+            port: 80
+
+第二条 Ingress（准备合并）：
+yaml
+复制
+
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: ingress-b
+  annotations:
+    kubernetes.io/ingress.class: alb
+    alb.ingress.kubernetes.io/group.name: shared-alb   # 与上面相同
+spec:
+  rules:
+  - host: api.b.com
+    http:
+      paths:
+      - path: /
+        backend:
+          service:
+            name: svc-b
+            port: 80
+
+kubectl apply 后，不会 再出现新 ALB，只是主 ALB 的监听规则里多出一条主机头路由。
+四、常见报错与处理
+表格
+复制
+报错/现象	原因	解决
+Duplicate listener port	两条 Ingress 同时声明了 80 或 443 且证书不一致	把证书统一到一条 Ingress，或使用 tls.crt 字段合并证书
+TooManyCertificates	单个监听证书 >25 张	拆分不同 hostname 到不同监听（如 443 与 8443），或买通配符证书
+ALB not deleted	还有 Ingress 或 Service 类型 LoadBalancer 在引用	kubectl get ingress -A 确认 group 名全部一致；kubectl get svc -A 看有没有 type: LoadBalancer 也挂到同子网
+五、防反弹：让以后再也乱建不出新 ALB
+
+    给 Controller 加默认 group（Helm 值）：
+
+--set defaultIngressGroup=shared-alb
+升级一次即可，以后用户不写 group.name 也会落进这个组。
+2. CI 门禁（GitLab-CI 片段）：
+yaml
+复制
+
+script:
+  - yq e '.metadata.annotations["alb.ingress.kubernetes.io/group.name"]' ingress.yaml | grep -q shared-alb
+
+不通过就拒绝 MR，根治人为疏忽。
+六、秒级回滚（万一合并后冲突）
+把某条 Ingress 踢出 group，立即单独再起一个 ALB：
+bash
+复制
+
+kubectl annotate ingress <name> alb.ingress.kubernetes.io/group.name-
+
+controller 30 s 内会新建 ALB 并恢复原 DNS，业务无感知。
+七、效果总结
+表格
+复制
+指标	合并前	合并后（示例 6 个 Ingress）
+ALB 数量	6	1
+占用 subnet IP	12	2
+剩余 IP	2	12
+费用变化	6×$0.0225×24=$3.24/天	1×$0.0225×24=$0.54/天
+一句话：把全部 Ingress 的 group.name 写成同一个字符串，3 分钟就能收回 (N-1)×2 个私有 IP，subnet 立刻松掉，后续再扩容节点也不慌。祝顺利！
+aws elbv2 describe-load-balancers \
+  --query 'LoadBalancers[?Type==`application`]' \
+  --output table | grep -E 'LoadBalancerName|Subnet' 本地办公机器是win 没有grep
+编辑
+复制
+分享
+在 Windows 本地办公机（PowerShell 或 CMD）里，可以用 PowerShell 原生命令 代替 grep，效果完全一样：
+PowerShell 一行版（直接复制）
+powershell
+复制
+
+aws elbv2 describe-load-balancers --query 'LoadBalancers[?Type==`application`]' --output json |
+  ConvertFrom-Json |
+  ForEach-Object {
+    [PSCustomObject]@{
+      LoadBalancerName = $_.LoadBalancerName
+      Subnets          = $_.Subnets -join ','
+    }
+  } | Format-Table -AutoSize
+
+如果想 保留 table 样式 并且只抓关键列，再精简一点：
+powershell
+复制
+
+aws elbv2 describe-load-balancers --query 'LoadBalancers[?Type==`application`].[LoadBalancerName,Subnets]' --output table
+
+CMD 无 grep 的替代方案
+CMD 里没有 grep，但可以装 Git Bash 或 WSL；
+如果只能用 CMD，可先把结果写文件再 findstr：
+cmd
+复制
+
+aws elbv2 describe-load-balancers --query "LoadBalancers[?Type=='application'].[LoadBalancerName,Subnets]" --output table > albs.txt
+findstr /R "LoadBalancerName subnet" albs.txt
+
+最简建议
+装个 Git Bash（自带 grep、awk、jq），以后所有 Linux 命令都能用；
+或者直接用 PowerShell 里的 ConvertFrom-Json 即可，无需额外软件。
+
+**************
+
 明白了，你们不是单纯想“少几个 ALB”，而是  
 **「每个 ALB 强制占用 2 个私有 IP（两个 AZ 各 1 个）→ subnet IP 快被吃完」**  
 所以目标是：  
