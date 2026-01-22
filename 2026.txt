@@ -1,3 +1,120 @@
+明白了，你们不是单纯想“少几个 ALB”，而是  
+**「每个 ALB 强制占用 2 个私有 IP（两个 AZ 各 1 个）→ subnet IP 快被吃完」**  
+所以目标是：  
+1. 把现有一堆 ALB 合并成 1 个，**立刻回收 (N-1)×2 个 IP**；  
+2. 以后尽量不再拆出新的 ALB，保证 subnet 不再爆。  
+
+下面给出在 EKS 场景下**最快速、低风险、可回滚**的“IP 抢救”步骤，全部围绕「减少 ALB 数量」这一件事，不碰节点 CIDR，不改 CNI，10 min 内可落地。
+
+------------------------------------------------
+一、1 min 盘点：到底被谁吃掉了 IP
+```bash
+# 1. 看 subnet 剩余
+aws ec2 describe-subnets --subnet-ids \
+  subnet-0xxx subnet-1xxx \
+  --query 'Subnets[*].[SubnetId,AvailableIpAddressCount]'
+
+# 2. 看这些 subnet 上挂了多少 ALB
+aws elbv2 describe-load-balancers --query \
+  'LoadBalancers[?contains(`["subnet-0xxx","subnet-1xxx"]`, Subnets[0].SubnetId)].{DNS:DNSName,Type:Type,Name:LoadBalancerName}' \
+  --output table
+```
+通常会发现 5~10 个 “k8s-cluster1/2/3…” 命名的 ALB，全是 Ingress 自动创建的。
+
+------------------------------------------------
+二、5 min 合并：把 N 个 ALB 压成 1 个
+1. 选一个「保留 ALB」  
+   挑域名/证书已经配置好、WAF 已绑定的那条，记下它的  
+   `group.name`（annotation 里写的，默认是 “” 空字符串）。
+
+2. 把其余 Ingress 全部改到同一个 group  
+   给所有要合并的 Ingress 打一样的 annotation：
+   ```yaml
+   alb.ingress.kubernetes.io/group.name: "shared-alb"   # 任意字符串，只要统一
+   alb.ingress.kubernetes.io/group.order: "10"         # 可选，控制规则顺序
+   ```
+   可以用 kubectl patch 一键打：
+   ```bash
+   kubectl patch ingress ingress-a -p \
+     '{"metadata":{"annotations":{"alb.ingress.kubernetes.io/group.name":"shared-alb"}}}'
+   ```
+   每改一个，AWS 控制器会把规则追加到「保留 ALB」的监听下面，同时把旧 ALB 标记为 “unused” 并在后台删除，**2~3 min 内释放 2 个 IP**。
+
+3. 验证 IP 是否已释放
+   ```bash
+   watch -n 5 'aws ec2 describe-subnets --subnet-ids subnet-0xxx \
+     --query "Subnets[0].AvailableIpAddressCount"'
+   ```
+   每删一个 ALB，AvailableIpAddressCount +2。
+
+------------------------------------------------
+三、防反弹：以后再也不让 Ingress 乱建 ALB
+1. 集群级默认强制统一 group  
+   给 AWS Load Balancer Controller 加参数（ Helm 值 ）：
+   ```
+   defaultIngressGroup: shared-alb
+   ```
+   以后任何人不写 `group.name` 也会自动落进 “shared-alb”，不会再默默新建 ALB。
+
+2. 加一条 CI 门禁  
+   在 GitLab/GitHub CI 里做 yaml 静态扫描，只要出现  
+   `kubernetes.io/ingress.class: alb` 且没有 `group.name: shared-alb` 就拒绝 MR，彻底根治。
+
+------------------------------------------------
+四、极限场景：实在不能合并，还有 3 个备用方案
+| 方案 | 释放 IP 数量 | 工作量 | 备注 |
+|---|---|---|---|
+| 1. 把 ALB 从“internal” 改成 “internet-facing” 并迁到别的 subnet | 2*N | 5 min | 只需改 annotation `scheme`+subnet 标签，零中断 |
+| 2. 启用 IPv6（双栈） | 大量 | 中 | 节点/pod 走 IPv6，ALB 仍占 IPv4，但可缓一缓 |
+| 3. 直接扩 subnet CIDR | 无限 | 10 min | 把 subnet 掩码从 /24 → /23，需滚动节点，最彻底 |
+
+------------------------------------------------
+五、回滚预案
+万一合并后监听/证书冲突，30 秒内可回滚：  
+```bash
+kubectl annotate ingress ingress-a alb.ingress.kubernetes.io/group.name-
+```
+控制器会立即给该 Ingress 单独再起一个 ALB，原配置不变。
+
+------------------------------------------------
+六、总结一句话
+**“给所有 Ingress 打同一个 group.name，3 min 就能收回 (N-1)×2 个 IP，subnet 立刻松一口气；再加一条默认 group 门禁，以后不会再爆。”**  
+照着做，今晚就能让 subnet 剩余 IP 从 2 个变成 10+，先救命，再考虑后续扩容。祝操作顺利！
+
+###
+仅凭名称 “ELB app/k8s-default-wexx-2444/dfb” 无法 100 % 断定它到底是 ALB、NLB 还是 CLB，但可以用下面 2 种办法在 10 秒内确认：
+
+----------------------------------------
+1. AWS CLI（最准）
+```bash
+aws elbv2 describe-load-balancers \
+  --query 'LoadBalancers[?LoadBalancerName==`k8s-default-wexx-2444`] | [0].[Type,DNSName,LoadBalancerArn]'
+```
+- 返回 `"Type" : "application"`  → ALB  
+- 返回 `"Type" : "network"`     → NLB  
+- 报错 “LoadBalancerNotFound” → 再去 classic 里查：
+```bash
+aws elb describe-load-balancers \
+  --query 'LoadBalancerDescriptions[?LoadBalancerName==`k8s-default-wexx-2444`] | [0].[DNSName]'
+```
+能查到就是旧版 CLB。
+
+----------------------------------------
+2. 控制台/控制台 URL
+登录 EC2 → Load Balancers → 搜索 “wexx-2444”  
+- 图标是 “ALB” 或 “NLB” 直接写明；  
+- 如果页面跳转到 “Classic Load Balancer” 就是 CLB。
+
+----------------------------------------
+快速判断小技巧（仅辅助）
+- 名字里带 “k8s-” 且后面是一串随机字符串，99 % 是 EKS 的 **ingress-controller 自动创建的 ALB**；  
+- 如果 DNS 名以 “*-123456789.region.elb.amazonaws.com” 结尾，也是 ALB/NLB 特征；  
+- 以 “*-123456789.region.ec2.elb.amazonaws.com” 结尾则是 CLB。
+
+结论：  
+**先用第一条 CLI 命令，秒级就能知道它是 ALB、NLB 还是 CLB**；肉眼猜不如一行命令准。
+
+
 import boto3
 
 ec2_client= boto3.client('ec2')
