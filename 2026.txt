@@ -1,3 +1,144 @@
+我理解你遇到的问题：多个 Ingress 创建了多个 ALB,导致子网 IP 地址不足。以下是几种解决方案:
+
+## 1. 使用 IngressGroup 合并多个 Ingress(推荐)
+
+AWS Load Balancer Controller 支持通过 `IngressGroup` 将多个 Ingress 合并到同一个 ALB:
+
+```yaml
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: ingress-1
+  annotations:
+    alb.ingress.kubernetes.io/scheme: internet-facing
+    alb.ingress.kubernetes.io/group.name: my-group  # 关键:相同的 group name
+    alb.ingress.kubernetes.io/group.order: '10'     # 优先级
+spec:
+  ingressClassName: alb
+  rules:
+  - host: app1.example.com
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: service-1
+            port:
+              number: 80
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: ingress-2
+  annotations:
+    alb.ingress.kubernetes.io/scheme: internet-facing
+    alb.ingress.kubernetes.io/group.name: my-group  # 同一个 group
+    alb.ingress.kubernetes.io/group.order: '20'
+spec:
+  ingressClassName: alb
+  rules:
+  - host: app2.example.com
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: service-2
+            port:
+              number: 80
+```
+
+## 2. 在单个 Ingress 中配置多个规则
+
+将所有路由规则合并到一个 Ingress 资源:
+
+```yaml
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: unified-ingress
+  annotations:
+    alb.ingress.kubernetes.io/scheme: internet-facing
+spec:
+  ingressClassName: alb
+  rules:
+  - host: app1.example.com
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: service-1
+            port:
+              number: 80
+  - host: app2.example.com
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: service-2
+            port:
+              number: 80
+  - host: app3.example.com
+    http:
+      paths:
+      - path: /api
+        pathType: Prefix
+        backend:
+          service:
+            name: service-3
+            port:
+              number: 8080
+```
+
+## 3. 扩展子网 IP 地址(治标)
+
+如果必须保留多个 ALB:
+
+- **添加新子网**:创建更大的子网或添加额外子网
+- **使用辅助 CIDR**:为 VPC 添加辅助 CIDR 块
+- **清理未使用的 ENI**:检查并删除僵尸网络接口
+
+```bash
+# 检查子网可用 IP
+aws ec2 describe-subnets --subnet-ids subnet-xxx \
+  --query 'Subnets[*].[SubnetId,AvailableIpAddressCount]'
+```
+
+## 4. 迁移步骤
+
+如果你要将现有的多个 Ingress 合并:
+
+```bash
+# 1. 备份现有配置
+kubectl get ingress -A -o yaml > ingress-backup.yaml
+
+# 2. 更新 Ingress 添加 group.name annotation
+kubectl annotate ingress <ingress-name> \
+  alb.ingress.kubernetes.io/group.name=my-group
+
+# 3. 验证 ALB 合并
+kubectl get ingress -A
+# 检查 AWS Console 确认只有一个 ALB
+
+# 4. 删除旧的独立 Ingress(如需要)
+```
+
+## 注意事项
+
+- IngressGroup 中的所有 Ingress 必须使用相同的 `scheme` (internet-facing 或 internal)
+- `group.order` 决定规则优先级,数字越小优先级越高
+- 确保不同 Ingress 的规则不冲突(特别是 host 和 path 的组合)
+- 合并后,ALB 的监听器规则会包含所有 Ingress 的路由
+
+
+使用 IngressGroup 是最优雅的解决方案,可以在不改变应用架构的情况下共享 ALB,大大节省 IP 地址和成本。
+claude 
 
 下面把「用 IngressGroup 把 N 个 Ingress 压成 1 个 ALB」的 全部细节、命令、排错、回滚 再完整给一遍，复制即可用。
 目标：10 min 内收回 (N-1)×2 个私有 IP，解决 subnet 只剩 2 个 IP 的燃眉之急。
